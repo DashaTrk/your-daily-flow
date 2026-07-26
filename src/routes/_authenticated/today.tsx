@@ -79,7 +79,7 @@ function TodayPage() {
           )}
         </div>
 
-        <ChatComposer onSend={async t => sendMut.mutateAsync(t)} disabled={sendMut.isPending} />
+        <ChatComposer onSend={async t => { await sendMut.mutateAsync(t); }} disabled={sendMut.isPending} />
       </section>
 
       <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
