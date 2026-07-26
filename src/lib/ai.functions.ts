@@ -136,9 +136,11 @@ export const routeChatMessage = createServerFn({ method: "POST" })
 export const transcribeAudio = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => {
-    if (!(data instanceof FormData)) throw new Error("Expected FormData");
-    const file = data.get("file");
-    if (!(file instanceof File) && !(file instanceof Blob)) throw new Error("Missing file");
+    const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+    if (!isFormData) throw new Error("Expected FormData");
+    const fd = data as FormData;
+    const file = fd.get("file");
+    if (!file || typeof (file as Blob).arrayBuffer !== "function") throw new Error("Missing file");
     return { file: file as Blob };
   })
   .handler(async ({ data }) => {
