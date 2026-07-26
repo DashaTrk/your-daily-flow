@@ -1,7 +1,9 @@
 import { createStart, createCsrfMiddleware, createMiddleware } from "@tanstack/react-start";
 
 import { renderErrorPage } from "./lib/error-page";
-import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
+// Replaces generated attachSupabaseAuth: reads token from storage without
+// local iat validation, which trips on managed-clock skew ("JWT issued at future").
+import { attachSupabaseBearer } from "@/lib/supabase-bearer";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -26,6 +28,6 @@ const csrfMiddleware = createCsrfMiddleware({
 });
 
 export const startInstance = createStart(() => ({
-  functionMiddleware: [attachSupabaseAuth],
+  functionMiddleware: [attachSupabaseBearer],
   requestMiddleware: [errorMiddleware, csrfMiddleware],
 }));
