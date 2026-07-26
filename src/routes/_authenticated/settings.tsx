@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/settings")({
-  head: () => ({ meta: [{ title: "Настройки — Flow" }, { name: "description", content: "Уведомления, интеграции, профиль." }] }),
+  head: () => ({ meta: [{ title: "Настройки — Мой Ассистент" }, { name: "description", content: "Уведомления, интеграции, профиль." }] }),
   component: SettingsPage,
 });
 
@@ -24,7 +24,7 @@ function SettingsPage() {
     if (typeof Notification === "undefined") { toast.error("Ваш браузер не поддерживает уведомления"); return; }
     const p = await Notification.requestPermission();
     setPermission(p);
-    if (p === "granted") { new Notification("Flow", { body: "Уведомления включены ✨" }); toast.success("Готово"); }
+    if (p === "granted") { new Notification("Мой Ассистент", { body: "Уведомления включены ✨" }); toast.success("Готово"); }
   }
 
   async function signOut() {

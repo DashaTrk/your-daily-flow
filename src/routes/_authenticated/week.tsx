@@ -6,7 +6,7 @@ import { weekDays, fmtShortDay, fmtTime, sameDay } from "@/lib/date-utils";
 import { Check, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/week")({
-  head: () => ({ meta: [{ title: "Неделя — Flow" }, { name: "description", content: "Задачи и события на всю неделю." }] }),
+  head: () => ({ meta: [{ title: "Неделя — Мой Ассистент" }, { name: "description", content: "Задачи и события на всю неделю." }] }),
   component: WeekPage,
 });
 

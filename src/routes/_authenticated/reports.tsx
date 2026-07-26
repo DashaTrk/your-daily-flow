@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { fmtDate } from "@/lib/date-utils";
 
 export const Route = createFileRoute("/_authenticated/reports")({
-  head: () => ({ meta: [{ title: "Отчёты — Flow" }, { name: "description", content: "Шаблоны отчётов и AI-помощник." }] }),
+  head: () => ({ meta: [{ title: "Отчёты — Мой Ассистент" }, { name: "description", content: "Шаблоны отчётов и AI-помощник." }] }),
   component: ReportsPage,
 });
 
