@@ -7,7 +7,7 @@ import { Plus, Trash2, ListChecks, ShoppingCart, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/lists")({
-  head: () => ({ meta: [{ title: "Списки — Flow" }, { name: "description", content: "Все ваши списки в одном месте." }] }),
+  head: () => ({ meta: [{ title: "Списки — Мой Ассистент" }, { name: "description", content: "Все ваши списки в одном месте." }] }),
   component: ListsPage,
 });
 

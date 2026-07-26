@@ -39,7 +39,7 @@ function AuthLayout() {
           <div className="h-8 w-8 rounded-lg glass glow flex items-center justify-center">
             <Sparkles className="h-4 w-4 text-primary" />
           </div>
-          <span className="font-display font-bold text-lg text-gradient">Flow</span>
+          <span className="font-display font-bold text-lg text-gradient">Мой Ассистент</span>
         </Link>
         {NAV.map(({ to, label, icon: Icon }) => {
           const active = location.pathname === to || (to === "/lists" && location.pathname.startsWith("/lists"));

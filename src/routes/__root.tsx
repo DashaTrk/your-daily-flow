@@ -76,10 +76,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { title: "Flow — умный трекер задач" },
+      { title: "Мой Ассистент — умный трекер задач" },
       { name: "description", content: "Персональное рабочее пространство: чат-ассистент превращает голос и текст в задачи, события, списки и отчёты." },
       { name: "theme-color", content: "#0A0A0F" },
-      { property: "og:title", content: "Flow — умный трекер задач" },
+      { property: "og:title", content: "Мой Ассистент — умный трекер задач" },
       { property: "og:description", content: "Голосом или текстом — а он сам разложит в задачи, календарь, списки и отчёты." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

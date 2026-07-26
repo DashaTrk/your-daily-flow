@@ -10,7 +10,7 @@ import { fmtTime, sameDay } from "@/lib/date-utils";
 import { useEffect, useRef } from "react";
 
 export const Route = createFileRoute("/_authenticated/today")({
-  head: () => ({ meta: [{ title: "Сегодня — Flow" }, { name: "description", content: "Чат-ассистент и задачи на сегодня." }] }),
+  head: () => ({ meta: [{ title: "Сегодня — Мой Ассистент" }, { name: "description", content: "Чат-ассистент и задачи на сегодня." }] }),
   component: TodayPage,
 });
 

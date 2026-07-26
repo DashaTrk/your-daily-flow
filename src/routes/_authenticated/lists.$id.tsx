@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Plus, Trash2, Check, ChevronLeft } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lists/$id")({
-  head: () => ({ meta: [{ title: "Список — Flow" }, { name: "description", content: "Элементы списка." }] }),
+  head: () => ({ meta: [{ title: "Список — Мой Ассистент" }, { name: "description", content: "Элементы списка." }] }),
   component: ListDetail,
 });
 

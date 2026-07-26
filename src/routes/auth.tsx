@@ -8,8 +8,8 @@ import { Sparkles } from "lucide-react";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Вход — Flow" },
-      { name: "description", content: "Вход в личный трекер Flow." },
+      { title: "Вход — Мой Ассистент" },
+      { name: "description", content: "Вход в личный трекер Мой Ассистент." },
     ],
   }),
   ssr: false,
@@ -68,7 +68,7 @@ function AuthPage() {
           <div className="h-10 w-10 rounded-xl glass glow flex items-center justify-center">
             <Sparkles className="h-5 w-5 text-primary" />
           </div>
-          <span className="font-display text-2xl font-bold text-gradient">Flow</span>
+          <span className="font-display text-2xl font-bold text-gradient">Мой Ассистент</span>
         </Link>
 
         <div className="glass rounded-2xl p-8">
