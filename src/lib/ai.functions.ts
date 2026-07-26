@@ -25,12 +25,13 @@ async function callAi(body: unknown): Promise<any> {
 const RouteInput = z.object({ text: z.string().min(1).max(4000) });
 
 type RouterOutput = {
-  kind: "task" | "list_item" | "event" | "note" | "reply";
+  kind: "task" | "list_item" | "event" | "note" | "reply" | "update";
   reply: string;
   task?: { title: string; due_at?: string | null; notes?: string | null; priority?: string };
   list_item?: { list_name: string; list_kind: "shopping" | "todo" | "custom"; items: string[] };
   event?: { title: string; start_at: string; notes?: string | null };
   reminder?: { title: string; remind_at: string } | null;
+  update?: { target: "last_task"; new_due_at?: string | null; new_title?: string | null };
 };
 
 export const routeChatMessage = createServerFn({ method: "POST" })
@@ -42,29 +43,39 @@ export const routeChatMessage = createServerFn({ method: "POST" })
     // Save user message
     await supabase.from("chat_messages").insert({ user_id: userId, role: "user", content: data.text });
 
+    // Pull last few messages for follow-up context (e.g. "сегодня а не завтра")
+    const { data: history } = await supabase
+      .from("chat_messages")
+      .select("role, content, meta, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(8);
+    const contextMsgs = (history ?? []).reverse();
+
     const nowIso = new Date().toISOString();
-    const system = `Ты — помощник в личном трекере. Пользователь пишет короткое сообщение на естественном языке. Классифицируй сообщение в один из типов и извлеки поля.
+    const nowLocal = new Date().toLocaleString("ru-RU", { timeZone: "Europe/Moscow", weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    const system = `Ты — помощник в личном трекере. Классифицируй сообщение и извлеки поля.
 
-Типы:
-- "task": одиночная задача/дело/напоминание с датой или без ("не забыть отправить отчёт", "позвонить маме завтра в 15:00")
-- "list_item": добавление в список ("купить молоко и хлеб" → список покупок; "идеи: посмотреть фильм X" → список идей)
-- "event": встреча/событие с конкретным временем ("встреча с Аней завтра 15:00 в офисе")
-- "note": простая заметка без действия
-- "reply": пользователь задал вопрос или ведёт диалог — просто ответить в reply
+Типы (kind):
+- "task": задача/дело ("не забыть отправить отчёт", "позвонить маме завтра в 15:00", "проверка деклараций в 10")
+- "list_item": явное добавление В СПИСОК ("добавь в список покупок молоко", "в список дел на понедельник: X", "купить хлеб")
+- "event": встреча с конкретным временем ("встреча с Аней завтра 15:00")
+- "update": КОРРЕКЦИЯ последнего действия ("сегодня а не завтра", "перенеси на 11", "нет, назови иначе")
+- "reply": вопрос или диалог без действия
+- "note": заметка без действия
 
-Правила:
-- Сейчас: ${nowIso} (UTC). Часовой пояс пользователя: UTC. Все даты возвращай ISO 8601 в UTC.
-- Если время неоднозначно ("завтра"), ставь 09:00 UTC.
-- reply — короткое дружелюбное подтверждение на русском ("Записал задачу «...» на завтра в 15:00").
-- Если событие с временем — kind="event". Если задача с дедлайном — kind="task".
-- Для list_item: определи название списка. Кухня/еда → "Покупки" (shopping). Прочее → "Дела" (todo) или указанное имя.
-- Если пользователь просит напоминание — заполни reminder с датой.
-- Отвечай ТОЛЬКО валидным JSON без комментариев и \`\`\`.`;
+КРИТИЧНО:
+- Если пользователь ЯВНО говорит "в список дел / покупок / …" — это list_item, а не task. list_name бери из фразы ("Дела", "Покупки"). Дату/день (понедельник) вставь в текст элемента списка.
+- Если сообщение — правка предыдущего ("сегодня а не завтра", "перенеси на …") — kind="update" и заполни update.new_due_at (ISO UTC) или new_title. НЕ отвечай "переношу" без update-объекта.
+- reply — честное подтверждение того, что реально сделано. Если kind="reply", не пиши "записал/добавил".
+- Сейчас: ${nowIso} UTC (${nowLocal} Мск). Даты возвращай ISO 8601 UTC. Если время не указано — 09:00 локального (06:00 UTC).
+- Отвечай ТОЛЬКО валидным JSON.`;
 
     const aiRes = await callAi({
       model: "google/gemini-3.6-flash",
       messages: [
         { role: "system", content: system },
+        ...contextMsgs.slice(0, -1).map((m: any) => ({ role: m.role, content: m.content })),
         { role: "user", content: data.text },
       ],
       response_format: { type: "json_object" },
@@ -78,55 +89,93 @@ export const routeChatMessage = createServerFn({ method: "POST" })
     }
 
     const created: Record<string, any> = {};
+    let actionOk = false;
 
-    if (parsed.kind === "task" && parsed.task) {
-      const { data: t } = await supabase.from("tasks").insert({
-        user_id: userId,
-        title: parsed.task.title,
-        notes: parsed.task.notes ?? null,
-        due_at: parsed.task.due_at ?? null,
-        priority: parsed.task.priority ?? "normal",
-        source: "chat",
-      }).select().single();
-      created.task = t;
-      if (parsed.reminder && t) {
-        await supabase.from("reminders").insert({
-          user_id: userId, task_id: t.id, title: parsed.reminder.title,
-          remind_at: parsed.reminder.remind_at, channels: ["browser"],
-        });
-      }
-    } else if (parsed.kind === "event" && parsed.event) {
-      const { data: t } = await supabase.from("tasks").insert({
-        user_id: userId,
-        title: parsed.event.title,
-        notes: parsed.event.notes ?? null,
-        due_at: parsed.event.start_at,
-        source: "chat_event",
-      }).select().single();
-      created.event = t;
-    } else if (parsed.kind === "list_item" && parsed.list_item) {
-      // Find or create list
-      const { data: existing } = await supabase.from("lists")
-        .select("*").eq("user_id", userId).ilike("name", parsed.list_item.list_name).maybeSingle();
-      let list = existing;
-      if (!list) {
-        const { data: nl } = await supabase.from("lists").insert({
-          user_id: userId, name: parsed.list_item.list_name, kind: parsed.list_item.list_kind,
+    try {
+      if (parsed.kind === "task" && parsed.task) {
+        const { data: t, error } = await supabase.from("tasks").insert({
+          user_id: userId,
+          title: parsed.task.title,
+          notes: parsed.task.notes ?? null,
+          due_at: parsed.task.due_at ?? null,
+          priority: parsed.task.priority ?? "normal",
+          source: "chat",
         }).select().single();
-        list = nl;
+        if (error) throw error;
+        created.task = t;
+        actionOk = true;
+        if (parsed.reminder && t) {
+          await supabase.from("reminders").insert({
+            user_id: userId, task_id: t.id, title: parsed.reminder.title,
+            remind_at: parsed.reminder.remind_at, channels: ["browser"],
+          });
+        }
+      } else if (parsed.kind === "event" && parsed.event) {
+        const { data: t, error } = await supabase.from("tasks").insert({
+          user_id: userId,
+          title: parsed.event.title,
+          notes: parsed.event.notes ?? null,
+          due_at: parsed.event.start_at,
+          source: "chat_event",
+        }).select().single();
+        if (error) throw error;
+        created.event = t;
+        actionOk = true;
+      } else if (parsed.kind === "list_item" && parsed.list_item) {
+        const { data: existing } = await supabase.from("lists")
+          .select("*").eq("user_id", userId).ilike("name", parsed.list_item.list_name).maybeSingle();
+        let list = existing;
+        if (!list) {
+          const { data: nl, error } = await supabase.from("lists").insert({
+            user_id: userId, name: parsed.list_item.list_name, kind: parsed.list_item.list_kind,
+          }).select().single();
+          if (error) throw error;
+          list = nl;
+        }
+        if (list) {
+          const rows = parsed.list_item.items.map((t, i) => ({
+            list_id: list!.id, user_id: userId, text: t, position: i,
+          }));
+          const { error } = await supabase.from("list_items").insert(rows);
+          if (error) throw error;
+          created.list = list;
+          created.items = parsed.list_item.items;
+          actionOk = true;
+        }
+      } else if (parsed.kind === "update" && parsed.update) {
+        // Find last task created via chat by this user
+        const { data: last } = await supabase.from("tasks")
+          .select("*").eq("user_id", userId)
+          .in("source", ["chat", "chat_event"])
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (last) {
+          const patch: Record<string, unknown> = {};
+          if (parsed.update.new_due_at) patch.due_at = parsed.update.new_due_at;
+          if (parsed.update.new_title) patch.title = parsed.update.new_title;
+          if (Object.keys(patch).length) {
+            const { data: upd, error } = await supabase.from("tasks")
+              .update(patch).eq("id", last.id).select().single();
+            if (error) throw error;
+            created.updated = upd;
+            actionOk = true;
+          }
+        }
+        if (!actionOk) {
+          parsed.reply = "Не нашёл, что править — уточните, пожалуйста.";
+        }
       }
-      if (list) {
-        const rows = parsed.list_item.items.map((t, i) => ({
-          list_id: list!.id, user_id: userId, text: t, position: i,
-        }));
-        await supabase.from("list_items").insert(rows);
-        created.list = list;
-        created.items = parsed.list_item.items;
-      }
+    } catch (e: any) {
+      parsed.reply = `Не удалось сохранить: ${e?.message ?? "ошибка"}`;
+      parsed.kind = "reply";
+    }
+
+    // Guard: if the model chose "reply" but its text sounds like a confirmation, correct it.
+    if (!actionOk && /запис|добав|создал|перенес|принял|готово/i.test(parsed.reply) && parsed.kind !== "reply") {
+      parsed.reply = "Не совсем понял — переформулируйте, пожалуйста.";
     }
 
     await supabase.from("chat_messages").insert({
-      user_id: userId, role: "assistant", content: parsed.reply, meta: { kind: parsed.kind, created },
+      user_id: userId, role: "assistant", content: parsed.reply, meta: { kind: parsed.kind, created, actionOk },
     });
 
     return { reply: parsed.reply, kind: parsed.kind, created };
