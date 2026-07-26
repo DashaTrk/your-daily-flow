@@ -149,7 +149,7 @@ export const routeChatMessage = createServerFn({ method: "POST" })
           .in("source", ["chat", "chat_event"])
           .order("created_at", { ascending: false }).limit(1).maybeSingle();
         if (last) {
-          const patch: Record<string, unknown> = {};
+          const patch: { due_at?: string; title?: string } = {};
           if (parsed.update.new_due_at) patch.due_at = parsed.update.new_due_at;
           if (parsed.update.new_title) patch.title = parsed.update.new_title;
           if (Object.keys(patch).length) {
