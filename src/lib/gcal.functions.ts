@@ -21,12 +21,21 @@ export const getGoogleCalendarStatus = createServerFn({ method: "GET" })
 
 export const startGoogleCalendarConnect = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input: { origin?: string } | undefined) => input ?? {})
+  .handler(async ({ context, data }) => {
     const clientAPIKey = process.env['GOOGLE_CALENDAR_APP_USER_CONNECTOR_CLIENT_API_KEY'];
     if (!clientAPIKey) throw new Error("Google Calendar connector client is not configured.");
     const request = getRequest();
-    if (!request) throw new Error("OAuth must start from an app request.");
-    const returnUrl = new URL("/oauth/google-calendar/return", request.url).toString();
+    const headerOrigin =
+      request?.headers.get("origin") ??
+      (request?.headers.get("referer") ? new URL(request.headers.get("referer")!).origin : null);
+    let base = data.origin || headerOrigin || (request ? new URL(request.url).origin : "");
+    if (!base || base.includes("localhost") || base.includes("127.0.0.1")) {
+      base = headerOrigin && !headerOrigin.includes("localhost") ? headerOrigin : base;
+    }
+    if (!base) throw new Error("Cannot determine app origin for OAuth return URL.");
+    const returnUrl = new URL("/oauth/google-calendar/return", base).toString();
+
 
     const { getConnectionKeyForUser } = await import("@/server/appUserConnections.server");
     const { authorizeAppUserOAuth } = await import("@/integrations/lovable/appUserConnector");
