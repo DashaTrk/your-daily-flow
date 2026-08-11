@@ -101,7 +101,10 @@ function GoogleCalendarSection() {
     if (!popup) { toast.error("Разрешите всплывающие окна и попробуйте снова"); return; }
     setBusy(true);
     try {
-      const { authorizationUrl } = await startGoogleCalendarConnect();
+      const { authorizationUrl } = await startGoogleCalendarConnect({
+        data: { origin: window.location.origin },
+      });
+
       const done = waitForOAuth(popup);
       popup.location.href = authorizationUrl;
       await done;
