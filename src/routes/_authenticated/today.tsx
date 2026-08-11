@@ -127,7 +127,12 @@ function TodayPage() {
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className={`text-xs font-mono ${isCurrent ? "text-secondary" : "text-muted-foreground"}`}>{fmtTime(t.due_at!)}</span>
+                          <span className={`text-xs font-mono ${isCurrent ? "text-secondary" : "text-muted-foreground"}`}>
+                            {fmtTime(t.due_at!)}
+                            {t.source === "chat_event" && t.duration_minutes
+                              ? `–${fmtTime(new Date(time.getTime() + t.duration_minutes * 60_000))}`
+                              : ""}
+                          </span>
                           {t.source === "chat_event" && <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary/15 text-secondary uppercase tracking-wider">событие</span>}
                           {t.priority === "high" && <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/15 text-destructive uppercase tracking-wider">важно</span>}
                         </div>
