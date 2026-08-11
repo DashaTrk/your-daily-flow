@@ -2,25 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const LOVABLE_AI = "https://ai.gateway.lovable.dev/v1";
-
-async function callAi(body: unknown): Promise<any> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY not set");
-  const res = await fetch(`${LOVABLE_AI}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    if (res.status === 402) throw new Error("Кредиты AI закончились. Пополните баланс в настройках.");
-    if (res.status === 429) throw new Error("Слишком много запросов. Подождите немного.");
-    throw new Error(`AI error ${res.status}: ${text.slice(0, 200)}`);
-  }
-  return res.json();
-}
-
 // -------- CHAT ROUTER --------
 const RouteInput = z.object({ text: z.string().min(1).max(4000) });
 
@@ -38,6 +19,7 @@ export const routeChatMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => RouteInput.parse(data))
   .handler(async ({ data, context }) => {
+    const { callAi } = await import("@/server/ai-runtime.server");
     const { supabase, userId } = context;
 
     // Save user message
@@ -69,6 +51,8 @@ export const routeChatMessage = createServerFn({ method: "POST" })
 - Если сообщение — правка предыдущего ("сегодня а не завтра", "перенеси на …") — kind="update" и заполни update.new_due_at (ISO UTC) или new_title. НЕ отвечай "переношу" без update-объекта.
 - reply — честное подтверждение того, что реально сделано. Если kind="reply", не пиши "записал/добавил".
 - Для event: событие РАЗОВОЕ, без повторов. duration_minutes бери из фразы ("на 2 часа" → 120, "на 30 минут" → 30). Если длительность не названа — 60. Название события делай коротким и с заглавной буквы ("маникюр" → "Маникюр"), без слов-команд ("внеси в календарь").
+- Запись времени без минут однозначна: "в 12", "в 12 дня", "в 10 утра" означают 12:00, 12:00 и 10:00. Это НЕ причина просить переформулировать.
+- Пример: "в календарь маникюр завтра в 12" → kind="event", event.title="Маникюр", завтра 12:00 Мск, duration_minutes=60.
 - Сейчас: ${nowIso} UTC (${nowLocal} Мск). Даты возвращай ISO 8601 UTC. Если время не указано — 09:00 локального (06:00 UTC).
 - Отвечай ТОЛЬКО валидным JSON.`;
 
@@ -87,6 +71,28 @@ export const routeChatMessage = createServerFn({ method: "POST" })
       parsed = JSON.parse(aiRes.choices[0].message.content);
     } catch {
       parsed = { kind: "reply", reply: aiRes.choices[0].message.content ?? "Не понял, повторите?" };
+    }
+
+    const explicitCalendarCommand = /(?:внес|добав|запиш|постав|созда|в\s+календар|событи)/iu.test(data.text)
+      && /(?:календар|событи)/iu.test(data.text);
+    if (explicitCalendarCommand && (parsed.kind !== "event" || !parsed.event)) {
+      const retry = await callAi({
+        model: "google/gemini-3.6-flash",
+        messages: [
+          {
+            role: "system",
+            content: `${system}\nПользователь явно приказал создать событие. Верни kind="event" и объект event. Время вида "в 12" означает 12:00.`,
+          },
+          { role: "user", content: data.text },
+        ],
+        response_format: { type: "json_object" },
+      });
+      try {
+        const reparsed = JSON.parse(retry.choices[0].message.content) as RouterOutput;
+        if (reparsed.kind === "event" && reparsed.event) parsed = reparsed;
+      } catch {
+        // The normal validation below will avoid claiming an action succeeded.
+      }
     }
 
     const created: Record<string, any> = {};
@@ -219,24 +225,8 @@ export const transcribeAudio = createServerFn({ method: "POST" })
     return { file: file as Blob };
   })
   .handler(async ({ data }) => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("LOVABLE_API_KEY not set");
-    const upstream = new FormData();
-    upstream.append("model", "openai/gpt-4o-mini-transcribe");
-    const blob = data.file;
-    const name = (blob instanceof File && blob.name) || "recording.wav";
-    upstream.append("file", blob, name);
-    const res = await fetch(`${LOVABLE_AI}/audio/transcriptions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}` },
-      body: upstream,
-    });
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(`Transcription failed: ${res.status} ${t.slice(0, 200)}`);
-    }
-    const json = await res.json();
-    return { text: json.text as string };
+    const { transcribeAudioBlob } = await import("@/server/ai-runtime.server");
+    return transcribeAudioBlob(data.file);
   });
 
 // -------- REPORT GENERATION --------
@@ -250,6 +240,7 @@ export const generateReport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => ReportInput.parse(data))
   .handler(async ({ data, context }) => {
+    const { callAi } = await import("@/server/ai-runtime.server");
     const { supabase, userId } = context;
     const { data: tpl, error: tplErr } = await supabase.from("report_templates")
       .select("*").eq("id", data.template_id).eq("user_id", userId).single();
