@@ -61,15 +61,87 @@ function SettingsPage() {
         )}
       </section>
 
-      <section className="glass rounded-2xl p-5">
-        <h2 className="font-display font-semibold flex items-center gap-2 mb-2"><CalendarClock className="h-4 w-4 text-secondary" />Google Календарь</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Синхронизация событий с личным Google Календарём. Требуется подключение через App User Connector — я подскажу шаги.
-        </p>
-        <button disabled className="text-sm bg-surface-2 border border-border rounded-lg px-4 py-2 opacity-70">
-          Подключение будет доступно после настройки OAuth-клиента
-        </button>
-      </section>
+      <GoogleCalendarSection />
     </div>
+  );
+}
+
+function GoogleCalendarSection() {
+  const [status, setStatus] = useState<{ configured: boolean; connected: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = () => getGoogleCalendarStatus().then(setStatus).catch(() => setStatus({ configured: false, connected: false }));
+  useEffect(() => { void refresh(); }, []);
+
+  function waitForOAuth(popup: Window) {
+    return new Promise<void>((resolve, reject) => {
+      let poll: number | undefined;
+      const cleanup = () => { window.removeEventListener("message", onMessage); if (poll !== undefined) window.clearInterval(poll); };
+      const onMessage = (event: MessageEvent) => {
+        const type = event.data?.type;
+        if (event.origin !== window.location.origin || event.data?.connectorId !== "google_calendar") return;
+        if (type !== "appUserConnectorOAuthComplete" && type !== "appUserConnectorOAuthFailed") return;
+        cleanup();
+        if (type === "appUserConnectorOAuthComplete") { resolve(); return; }
+        popup.close();
+        reject(new Error("Не удалось подключить Google Календарь."));
+      };
+      window.addEventListener("message", onMessage);
+      poll = window.setInterval(() => {
+        if (!popup.closed) return;
+        cleanup();
+        reject(new Error("Окно закрыто до завершения подключения."));
+      }, 500);
+    });
+  }
+
+  async function connect() {
+    const popup = window.open("", "lovable-oauth", "width=600,height=720");
+    if (!popup) { toast.error("Разрешите всплывающие окна и попробуйте снова"); return; }
+    setBusy(true);
+    try {
+      const { authorizationUrl } = await startGoogleCalendarConnect();
+      const done = waitForOAuth(popup);
+      popup.location.href = authorizationUrl;
+      await done;
+      await refresh();
+      toast.success("Google Календарь подключён");
+    } catch (e: any) {
+      popup.close();
+      toast.error(e?.message ?? "Ошибка подключения");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnect() {
+    setBusy(true);
+    try { await disconnectGoogleCalendar(); await refresh(); toast.success("Отключено"); }
+    catch (e: any) { toast.error(e?.message ?? "Ошибка"); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <section className="glass rounded-2xl p-5">
+      <h2 className="font-display font-semibold flex items-center gap-2 mb-2"><CalendarClock className="h-4 w-4 text-secondary" />Google Календарь</h2>
+      <p className="text-sm text-muted-foreground mb-4">
+        События, которые вы диктуете ассистенту («внеси в календарь…»), будут создаваться в вашем личном Google Календаре.
+      </p>
+      {!status ? (
+        <p className="text-sm text-muted-foreground">Проверяем статус…</p>
+      ) : !status.configured ? (
+        <p className="text-sm text-muted-foreground">Интеграция ещё не настроена в рабочем пространстве.</p>
+      ) : status.connected ? (
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-sm text-success">Подключено</span>
+          <button onClick={disconnect} disabled={busy} className="text-sm bg-surface-2 hover:bg-surface border border-border rounded-lg px-4 py-2 disabled:opacity-60">Отключить</button>
+          <button onClick={connect} disabled={busy} className="text-sm bg-surface-2 hover:bg-surface border border-border rounded-lg px-4 py-2 disabled:opacity-60">Переподключить</button>
+        </div>
+      ) : (
+        <button onClick={connect} disabled={busy} className="text-sm bg-primary text-primary-foreground rounded-lg px-4 py-2 hover:bg-primary/90 glow disabled:opacity-60">
+          {busy ? "Подключаем…" : "Подключить Google Календарь"}
+        </button>
+      )}
+    </section>
   );
 }
