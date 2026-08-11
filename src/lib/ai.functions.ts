@@ -112,17 +112,38 @@ export const routeChatMessage = createServerFn({ method: "POST" })
           });
         }
       } else if (parsed.kind === "event" && parsed.event) {
+        const durationMinutes = parsed.event.duration_minutes && parsed.event.duration_minutes > 0 ? parsed.event.duration_minutes : 60;
         const { data: t, error } = await supabase.from("tasks").insert({
           user_id: userId,
           title: parsed.event.title,
           notes: parsed.event.notes ?? null,
           due_at: parsed.event.start_at,
-          duration_minutes: parsed.event.duration_minutes && parsed.event.duration_minutes > 0 ? parsed.event.duration_minutes : 60,
+          duration_minutes: durationMinutes,
           source: "chat_event",
         }).select().single();
         if (error) throw error;
         created.event = t;
         actionOk = true;
+        try {
+          const { createGoogleCalendarEvent } = await import("@/server/appUserConnections.server");
+          const gcalId = await createGoogleCalendarEvent({
+            userId,
+            title: parsed.event.title,
+            startAt: parsed.event.start_at,
+            durationMinutes,
+            description: parsed.event.notes ?? null,
+          });
+          if (gcalId && t) {
+            await supabase.from("tasks").update({ gcal_event_id: gcalId }).eq("id", t.id);
+            created.gcal = true;
+          } else {
+            created.gcal = false;
+          }
+        } catch (e: any) {
+          console.error("Google Calendar sync failed", e);
+          created.gcal = false;
+          created.gcalError = e?.message ?? "error";
+        }
       } else if (parsed.kind === "list_item" && parsed.list_item) {
         const { data: existing } = await supabase.from("lists")
           .select("*").eq("user_id", userId).ilike("name", parsed.list_item.list_name).maybeSingle();
