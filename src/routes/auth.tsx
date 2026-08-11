@@ -58,13 +58,21 @@ function AuthPage() {
   async function google() {
     setLoading(true);
     try {
+      // Drop any stale local session first: a dead refresh token makes the
+      // client spam /token and can break the fresh OAuth session.
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
       const res = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
       if (res.error) throw res.error;
-      if (!res.redirected) navigate({ to: "/today" });
+      if (!res.redirected) {
+        const { data } = await supabase.auth.getUser();
+        if (!data.user) throw new Error("Сессия не установилась, попробуйте ещё раз");
+        navigate({ to: "/today" });
+      }
     } catch (err: any) {
-      toast.error(err.message ?? "Не удалось войти через Google");
+      toast.error(err?.message ?? "Не удалось войти через Google");
     } finally { setLoading(false); }
   }
+
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10">
