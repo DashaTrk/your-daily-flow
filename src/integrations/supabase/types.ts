@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_user_connections: {
+        Row: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connection_key_ciphertext: string
+          connector_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connection_key_ciphertext?: string
+          connector_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           content: string
@@ -248,6 +275,7 @@ export type Database = {
           done: boolean
           due_at: string | null
           duration_minutes: number
+          gcal_event_id: string | null
           id: string
           notes: string | null
           priority: string | null
@@ -261,6 +289,7 @@ export type Database = {
           done?: boolean
           due_at?: string | null
           duration_minutes?: number
+          gcal_event_id?: string | null
           id?: string
           notes?: string | null
           priority?: string | null
@@ -274,6 +303,7 @@ export type Database = {
           done?: boolean
           due_at?: string | null
           duration_minutes?: number
+          gcal_event_id?: string | null
           id?: string
           notes?: string | null
           priority?: string | null
