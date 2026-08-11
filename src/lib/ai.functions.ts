@@ -138,12 +138,15 @@ export const routeChatMessage = createServerFn({ method: "POST" })
             created.gcal = true;
           } else {
             created.gcal = false;
+            parsed.reply = `${parsed.reply} Google Календарь не подключён — событие сохранено только здесь. Подключите его в Настройках.`;
           }
         } catch (e: any) {
           console.error("Google Calendar sync failed", e);
           created.gcal = false;
           created.gcalError = e?.message ?? "error";
+          parsed.reply = `${parsed.reply} Не удалось записать в Google Календарь: ${created.gcalError}. Проверьте подключение в Настройках.`;
         }
+
       } else if (parsed.kind === "list_item" && parsed.list_item) {
         const { data: existing } = await supabase.from("lists")
           .select("*").eq("user_id", userId).ilike("name", parsed.list_item.list_name).maybeSingle();
