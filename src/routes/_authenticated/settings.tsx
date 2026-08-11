@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Bell, CalendarClock, LogOut, User } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
-import { getGoogleCalendarStatus, startGoogleCalendarConnect, disconnectGoogleCalendar } from "@/lib/gcal.functions";
+import { getGoogleCalendarStatus, startGoogleCalendarConnect, disconnectGoogleCalendar, completeGoogleCalendarConnection } from "@/lib/gcal.functions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Настройки — Мой Ассистент" }, { name: "description", content: "Уведомления, интеграции, профиль." }] }),
@@ -81,6 +81,16 @@ function GoogleCalendarSection() {
       const onMessage = (event: MessageEvent) => {
         const type = event.data?.type;
         if (event.origin !== window.location.origin || event.data?.connectorId !== "google_calendar") return;
+        if (type === "appUserConnectorOAuthCode") {
+          // Exchange here: the popup can't reach localStorage in the sandboxed
+          // preview, so the authenticated parent window does the server call.
+          cleanup();
+          completeGoogleCalendarConnection({ data: { code: event.data.code } })
+            .then(() => resolve())
+            .catch((err: unknown) => reject(err instanceof Error ? err : new Error("Не удалось подключить Google Календарь.")))
+            .finally(() => popup.close());
+          return;
+        }
         if (type !== "appUserConnectorOAuthComplete" && type !== "appUserConnectorOAuthFailed") return;
         cleanup();
         if (type === "appUserConnectorOAuthComplete") { resolve(); return; }
@@ -95,6 +105,7 @@ function GoogleCalendarSection() {
       }, 500);
     });
   }
+
 
   async function connect() {
     const popup = window.open("", "lovable-oauth", "width=600,height=720");

@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { completeGoogleCalendarConnection } from "@/lib/gcal.functions";
 
 export const Route = createFileRoute("/oauth/google-calendar/return")({
   ssr: false,
@@ -13,28 +12,33 @@ function OAuthReturn() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const notify = (type: "appUserConnectorOAuthComplete" | "appUserConnectorOAuthFailed") => {
-      window.opener?.postMessage({ type, connectorId: "google_calendar" }, window.location.origin);
+    const post = (payload: Record<string, unknown>) => {
+      window.opener?.postMessage(
+        { connectorId: "google_calendar", ...payload },
+        window.location.origin,
+      );
       window.close();
     };
+
     if (params.get("success") !== "true") {
       setMessage(params.get("error") ?? "Подключение не завершилось.");
-      notify("appUserConnectorOAuthFailed");
+      post({ type: "appUserConnectorOAuthFailed" });
       return;
     }
     const code = params.get("code");
     if (!code) {
-      if (params.get("offline_access_allowed") === "false") { notify("appUserConnectorOAuthComplete"); return; }
+      if (params.get("offline_access_allowed") === "false") {
+        post({ type: "appUserConnectorOAuthComplete" });
+        return;
+      }
       setMessage("OAuth завершился без кода обмена.");
-      notify("appUserConnectorOAuthFailed");
+      post({ type: "appUserConnectorOAuthFailed" });
       return;
     }
-    void completeGoogleCalendarConnection({ data: { code } })
-      .then(() => notify("appUserConnectorOAuthComplete"))
-      .catch(() => {
-        setMessage("Не удалось завершить подключение.");
-        notify("appUserConnectorOAuthFailed");
-      });
+    // The popup has no access to the app session in the sandboxed preview,
+    // so the opener performs the authenticated code exchange.
+    setMessage("Готово, можно закрыть окно.");
+    post({ type: "appUserConnectorOAuthCode", code });
   }, []);
 
   return (
