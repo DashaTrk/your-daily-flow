@@ -29,7 +29,7 @@ type RouterOutput = {
   reply: string;
   task?: { title: string; due_at?: string | null; notes?: string | null; priority?: string };
   list_item?: { list_name: string; list_kind: "shopping" | "todo" | "custom"; items: string[] };
-  event?: { title: string; start_at: string; notes?: string | null };
+  event?: { title: string; start_at: string; duration_minutes?: number | null; notes?: string | null };
   reminder?: { title: string; remind_at: string } | null;
   update?: { target: "last_task"; new_due_at?: string | null; new_title?: string | null };
 };
@@ -59,7 +59,7 @@ export const routeChatMessage = createServerFn({ method: "POST" })
 Типы (kind):
 - "task": задача/дело ("не забыть отправить отчёт", "позвонить маме завтра в 15:00", "проверка деклараций в 10")
 - "list_item": явное добавление В СПИСОК ("добавь в список покупок молоко", "в список дел на понедельник: X", "купить хлеб")
-- "event": встреча с конкретным временем ("встреча с Аней завтра 15:00")
+- "event": СОБЫТИЕ КАЛЕНДАРЯ. Ставь этот тип, если есть фразы "в календарь", "внеси в календарь", "добавь событие", "запиши в календарь" и подобные, ИЛИ если это встреча с конкретным временем ("встреча с Аней завтра 15:00").
 - "update": КОРРЕКЦИЯ последнего действия ("сегодня а не завтра", "перенеси на 11", "нет, назови иначе")
 - "reply": вопрос или диалог без действия
 - "note": заметка без действия
@@ -68,6 +68,7 @@ export const routeChatMessage = createServerFn({ method: "POST" })
 - Если пользователь ЯВНО говорит "в список дел / покупок / …" — это list_item, а не task. list_name бери из фразы ("Дела", "Покупки"). Дату/день (понедельник) вставь в текст элемента списка.
 - Если сообщение — правка предыдущего ("сегодня а не завтра", "перенеси на …") — kind="update" и заполни update.new_due_at (ISO UTC) или new_title. НЕ отвечай "переношу" без update-объекта.
 - reply — честное подтверждение того, что реально сделано. Если kind="reply", не пиши "записал/добавил".
+- Для event: событие РАЗОВОЕ, без повторов. duration_minutes бери из фразы ("на 2 часа" → 120, "на 30 минут" → 30). Если длительность не названа — 60. Название события делай коротким и с заглавной буквы ("маникюр" → "Маникюр"), без слов-команд ("внеси в календарь").
 - Сейчас: ${nowIso} UTC (${nowLocal} Мск). Даты возвращай ISO 8601 UTC. Если время не указано — 09:00 локального (06:00 UTC).
 - Отвечай ТОЛЬКО валидным JSON.`;
 
@@ -116,6 +117,7 @@ export const routeChatMessage = createServerFn({ method: "POST" })
           title: parsed.event.title,
           notes: parsed.event.notes ?? null,
           due_at: parsed.event.start_at,
+          duration_minutes: parsed.event.duration_minutes && parsed.event.duration_minutes > 0 ? parsed.event.duration_minutes : 60,
           source: "chat_event",
         }).select().single();
         if (error) throw error;
