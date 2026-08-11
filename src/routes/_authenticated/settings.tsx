@@ -81,6 +81,16 @@ function GoogleCalendarSection() {
       const onMessage = (event: MessageEvent) => {
         const type = event.data?.type;
         if (event.origin !== window.location.origin || event.data?.connectorId !== "google_calendar") return;
+        if (type === "appUserConnectorOAuthCode") {
+          // Exchange here: the popup can't reach localStorage in the sandboxed
+          // preview, so the authenticated parent window does the server call.
+          cleanup();
+          completeGoogleCalendarConnection({ data: { code: event.data.code } })
+            .then(() => resolve())
+            .catch((err) => reject(err instanceof Error ? err : new Error("Не удалось подключить Google Календарь.")))
+            .finally(() => popup.close());
+          return;
+        }
         if (type !== "appUserConnectorOAuthComplete" && type !== "appUserConnectorOAuthFailed") return;
         cleanup();
         if (type === "appUserConnectorOAuthComplete") { resolve(); return; }
@@ -95,6 +105,7 @@ function GoogleCalendarSection() {
       }, 500);
     });
   }
+
 
   async function connect() {
     const popup = window.open("", "lovable-oauth", "width=600,height=720");
