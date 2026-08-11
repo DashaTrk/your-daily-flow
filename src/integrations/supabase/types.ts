@@ -247,6 +247,7 @@ export type Database = {
           created_at: string
           done: boolean
           due_at: string | null
+          duration_minutes: number
           id: string
           notes: string | null
           priority: string | null
@@ -259,6 +260,7 @@ export type Database = {
           created_at?: string
           done?: boolean
           due_at?: string | null
+          duration_minutes?: number
           id?: string
           notes?: string | null
           priority?: string | null
@@ -271,6 +273,7 @@ export type Database = {
           created_at?: string
           done?: boolean
           due_at?: string | null
+          duration_minutes?: number
           id?: string
           notes?: string | null
           priority?: string | null
