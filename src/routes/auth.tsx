@@ -25,8 +25,13 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => { if (data.user) navigate({ to: "/today" }); });
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (data.user) { navigate({ to: "/today" }); return; }
+      // Stale/invalid session in storage breaks new sign-ins — clear it locally.
+      if (error) supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    }).catch(() => {});
   }, [navigate]);
+
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
