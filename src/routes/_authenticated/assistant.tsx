@@ -43,7 +43,7 @@ function AssistantPage() {
         <p className="text-sm text-muted-foreground">Наговорите или напишите — я разложу по полочкам.</p>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 pr-1 pb-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 pr-1 pb-4 custom-scrollbar">
         {(msgsQ.data ?? []).length === 0 && (
           <div className="glass rounded-2xl p-6 text-center">
             <Sparkles className="h-6 w-6 mx-auto mb-2 text-primary" />
