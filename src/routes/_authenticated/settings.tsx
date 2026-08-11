@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Bell, CalendarClock, LogOut, User } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
+import { getGoogleCalendarStatus, startGoogleCalendarConnect, disconnectGoogleCalendar } from "@/lib/gcal.functions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({ meta: [{ title: "Настройки — Мой Ассистент" }, { name: "description", content: "Уведомления, интеграции, профиль." }] }),
