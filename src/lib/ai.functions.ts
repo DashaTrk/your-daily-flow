@@ -204,6 +204,41 @@ export const routeChatMessage = createServerFn({ method: "POST" })
         if (!actionOk) {
           parsed.reply = "Не нашёл, что править — уточните, пожалуйста.";
         }
+      } else if (parsed.kind === "offer" && parsed.offer?.student_name) {
+        const o = parsed.offer;
+        const { data: existing } = await supabase.from("offers")
+          .select("*").eq("user_id", userId).ilike("student_name", o.student_name).maybeSingle();
+
+        const patch: Record<string, any> = {};
+        if (o.stage) patch.stage = o.stage;
+        if (o.company) patch.company = o.company;
+        if (o.note) patch.note = o.note;
+        if (o.start_date) {
+          patch.start_date = o.start_date;
+          const tasks = { ...((existing?.tasks as Record<string, string>) ?? {}) };
+          if (!tasks.start_date) tasks.start_date = new Date().toISOString();
+          patch.tasks = tasks;
+        }
+
+        if (existing) {
+          const { data: upd, error } = await supabase.from("offers")
+            .update(patch).eq("id", existing.id).eq("user_id", userId).select().single();
+          if (error) throw error;
+          created.offer = upd;
+        } else {
+          const { data: ins, error } = await supabase.from("offers").insert({
+            user_id: userId,
+            student_name: o.student_name,
+            stage: o.stage ?? "maybe",
+            company: o.company ?? null,
+            note: o.note ?? null,
+            start_date: o.start_date ?? null,
+            tasks: patch.tasks ?? {},
+          }).select().single();
+          if (error) throw error;
+          created.offer = ins;
+        }
+        actionOk = true;
       }
     } catch (e: any) {
       parsed.reply = `Не удалось сохранить: ${e?.message ?? "ошибка"}`;
