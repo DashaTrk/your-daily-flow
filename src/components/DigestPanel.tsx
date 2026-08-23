@@ -213,37 +213,38 @@ export function DigestPanel() {
             <div className="space-y-3">
               {DIGEST_SECTIONS.map((s) => {
                 const rows = entries.filter((e) => e.section === s.key);
-                if (!rows.length) return null;
                 return (
                   <div key={s.key}>
                     <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {s.title.replace(":", "")}
                     </p>
-                    <ul className="space-y-1">
-                      {rows.map((r) => (
-                        <li key={r.id} className="group flex items-start gap-2 rounded-lg bg-surface-2/50 px-3 py-2">
-                          <span className="flex-1 text-sm">
-                            <span className="font-medium">{r.student_name}</span>
-                            {r.comment ? <span className="text-foreground/80"> — {r.comment}</span> : null}
-                            {r.flagged ? <span className="ml-1">🔴</span> : null}
-                          </span>
-                          <button
-                            onClick={() => del({ data: { id: r.id } }).then(refresh)}
-                            className="text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                    {rows.length === 0 ? (
+                      <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+                        Пока пусто
+                      </p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {rows.map((r) => (
+                          <li key={r.id} className="group flex items-start gap-2 rounded-lg bg-surface-2/50 px-3 py-2">
+                            <span className="flex-1 text-sm">
+                              <span className="font-medium">{r.student_name}</span>
+                              {r.comment ? <span className="text-foreground/80"> — {r.comment}</span> : null}
+                              {r.flagged ? <span className="ml-1">🔴</span> : null}
+                            </span>
+                            <button
+                              onClick={() => del({ data: { id: r.id } }).then(refresh)}
+                              className="text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 );
               })}
-              {entries.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Записей нет. Добавьте вручную или напишите ассистенту: «Полина Бабякина пропуск декларации Java в дайджест».
-                </p>
-              )}
+
             </div>
           </section>
 
