@@ -37,8 +37,9 @@ function dm(iso: string) {
 }
 
 export function weekRangeLabel(weekStart: string) {
-  return `${dm(weekStart)}-${dm(addDaysISO(weekStart, 6))}`;
+  return `${dm(weekStart)} - ${dm(addDaysISO(weekStart, 6))}`;
 }
+
 
 export type DigestEntry = {
   id: string;
