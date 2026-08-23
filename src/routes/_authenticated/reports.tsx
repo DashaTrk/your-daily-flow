@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Plus, Trash2, FileText, Sparkles, Copy, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/date-utils";
+import { OffersFunnel } from "@/components/OffersFunnel";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Отчёты — Мой Ассистент" }, { name: "description", content: "Шаблоны отчётов и AI-помощник." }] }),
