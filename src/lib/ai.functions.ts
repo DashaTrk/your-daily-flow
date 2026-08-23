@@ -209,7 +209,7 @@ export const routeChatMessage = createServerFn({ method: "POST" })
         const { data: existing } = await supabase.from("offers")
           .select("*").eq("user_id", userId).ilike("student_name", o.student_name).maybeSingle();
 
-        const patch: Record<string, any> = {};
+        const patch: { stage?: string; company?: string; note?: string; start_date?: string; tasks?: Record<string, string> } = {};
         if (o.stage) patch.stage = o.stage;
         if (o.company) patch.company = o.company;
         if (o.note) patch.note = o.note;
