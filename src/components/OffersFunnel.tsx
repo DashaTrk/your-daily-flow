@@ -278,10 +278,9 @@ export function OffersFunnel() {
                   })}
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
