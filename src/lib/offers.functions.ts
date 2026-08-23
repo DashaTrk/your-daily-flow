@@ -37,6 +37,7 @@ export const createOffer = createServerFn({ method: "POST" })
         note: z.string().nullable().optional(),
         start_date: z.string().nullable().optional(),
         stage: z.enum(["maybe", "got", "working"]).optional(),
+        track: z.enum(["C#", "Java", "Golang"]).nullable().optional(),
       })
       .parse(d),
   )
@@ -61,6 +62,7 @@ export const updateOffer = createServerFn({ method: "POST" })
         note: z.string().nullable().optional(),
         start_date: z.string().nullable().optional(),
         stage: z.enum(["maybe", "got", "working"]).optional(),
+        track: z.enum(["C#", "Java", "Golang"]).nullable().optional(),
       })
       .parse(d),
   )
