@@ -6,7 +6,7 @@ import { z } from "zod";
 const RouteInput = z.object({ text: z.string().min(1).max(4000) });
 
 type RouterOutput = {
-  kind: "task" | "list_item" | "event" | "note" | "reply" | "update" | "offer";
+  kind: "task" | "list_item" | "event" | "note" | "reply" | "update" | "offer" | "digest" | "digest_sent";
   reply: string;
   task?: { title: string; due_at?: string | null; notes?: string | null; priority?: string };
   list_item?: { list_name: string; list_kind: "shopping" | "todo" | "custom"; items: string[] };
@@ -21,6 +21,14 @@ type RouterOutput = {
     track?: "C#" | "Java" | "Golang" | null;
     note?: string | null;
   };
+  digest?: {
+    student_name: string;
+    track: "C#" | "Java" | "Golang";
+    section: "declarations" | "interviews" | "legend" | "cards";
+    comment?: string | null;
+    flagged?: boolean | null;
+  };
+  digest_sent?: { track: "C#" | "Java" | "Golang" };
 };
 
 export const routeChatMessage = createServerFn({ method: "POST" })
@@ -54,6 +62,13 @@ export const routeChatMessage = createServerFn({ method: "POST" })
 - "reply": вопрос или диалог без действия
 - "note": заметка без действия
 - "offer": сообщение про УЧЕНИКА и его трудоустройство ("Владислав Орехов получил оффер Java", "Аня возможно получит оффер", "Петров вышел на работу", "у Орехова дата выхода 1 сентября"). Заполни offer.student_name (ФИО как названо), offer.stage: "maybe" (возможно получит / собеседование / ждём ответ), "got" (получил оффер), "working" (вышел на работу). offer.company — направление/компания, если названо ("Java"). offer.start_date — дата выхода в формате YYYY-MM-DD, если названа. offer.track — направление обучения строго одно из "C#", "Java", "Golang", если оно упомянуто (например «получил оффер Java» → track: "Java", «шарпы»/«си шарп»/«C#» → "C#", «го»/«golang» → "Golang").
+- "digest": комментарий про студента ДЛЯ ЕЖЕНЕДЕЛЬНОГО ДАЙДЖЕСТА. Ставь этот тип, если есть приписка «в дайджест», «дайджест» ИЛИ сообщение описывает проблему/статус студента по учебному процессу (декларации, пропуски, опоздания, собеседования, отклики, резюме/легенда, карточки/блоки). Заполни digest.student_name (Фамилия Имя), digest.track строго "Java" | "C#" | "Golang", digest.section:
+  • "declarations" — декларации, пропуски, опоздания ("Полина Бабякина пропуск декларации Java" → section="declarations", comment="пропуск");
+  • "interviews" — собеседования, отклики, тестовые, скрининги, деклараций откликов;
+  • "legend" — резюме, легенда, мок/mock;
+  • "cards" — карточки, блоки, учебный прогресс.
+  digest.comment — короткий комментарий БЕЗ имени и без слова «в дайджест». digest.flagged=true, если сказано «критично», «важно», «особое внимание», «красный флаг».
+- "digest_sent": пользователь сообщает, что ОТПРАВИЛ дайджест ("отправила отчёт по Java", "дайджест Golang отправлен"). Заполни digest_sent.track.
 
 
 КРИТИЧНО:
@@ -242,6 +257,49 @@ export const routeChatMessage = createServerFn({ method: "POST" })
           created.offer = ins;
         }
         actionOk = true;
+      } else if (parsed.kind === "digest" && parsed.digest?.student_name && parsed.digest?.track) {
+        const { mondayOf, sectionTitle } = await import("@/lib/digest-shared");
+        const d = parsed.digest;
+        const { data: wk } = await supabase.from("digest_weeks")
+          .select("week_start").eq("user_id", userId).eq("track", d.track).maybeSingle();
+        const weekStart = wk?.week_start ?? mondayOf();
+        const { data: row, error } = await supabase.from("digest_entries").insert({
+          user_id: userId,
+          track: d.track,
+          section: d.section ?? "declarations",
+          student_name: d.student_name,
+          comment: d.comment ?? "",
+          flagged: !!d.flagged,
+          week_start: weekStart,
+        }).select().single();
+        if (error) throw error;
+        created.digest = row;
+        actionOk = true;
+        parsed.reply = `Добавила в дайджест ${d.track}: ${d.student_name} — ${sectionTitle(d.section ?? "declarations").replace(":", "")}.`;
+      } else if (parsed.kind === "digest_sent" && parsed.digest_sent?.track) {
+        const { mondayOf, addDaysISO, renderDigest, weekRangeLabel } = await import("@/lib/digest-shared");
+        const track = parsed.digest_sent.track;
+        const { data: wk } = await supabase.from("digest_weeks")
+          .select("week_start").eq("user_id", userId).eq("track", track).maybeSingle();
+        const weekStart = wk?.week_start ?? mondayOf();
+        const { data: entries } = await supabase.from("digest_entries")
+          .select("*").eq("user_id", userId).eq("track", track).is("archived_at", null)
+          .order("created_at", { ascending: true });
+        const content = renderDigest(track, weekStart, (entries ?? []) as any);
+        const { error } = await supabase.from("digest_reports").insert({
+          user_id: userId, track, week_start: weekStart,
+          week_end: addDaysISO(weekStart, 6), content,
+        });
+        if (error) throw error;
+        await supabase.from("digest_entries").update({ archived_at: new Date().toISOString() })
+          .eq("user_id", userId).eq("track", track).is("archived_at", null);
+        await supabase.from("digest_weeks").upsert(
+          { user_id: userId, track, week_start: addDaysISO(weekStart, 7) },
+          { onConflict: "user_id,track" },
+        );
+        created.digest_sent = { track, weekStart };
+        actionOk = true;
+        parsed.reply = `Дайджест ${track} за ${weekRangeLabel(weekStart)} перенесён в архив. Новая неделя начата.`;
       }
     } catch (e: any) {
       parsed.reply = `Не удалось сохранить: ${e?.message ?? "ошибка"}`;

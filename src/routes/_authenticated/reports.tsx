@@ -8,6 +8,7 @@ import { Plus, Trash2, FileText, Sparkles, Copy, Check, Loader2 } from "lucide-r
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/date-utils";
 import { OffersFunnel } from "@/components/OffersFunnel";
+import { DigestPanel } from "@/components/DigestPanel";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Отчёты — Мой Ассистент" }, { name: "description", content: "Шаблоны отчётов и AI-помощник." }] }),
@@ -29,7 +30,7 @@ function ReportsPage() {
   const [selectedTplId, setSelectedTplId] = useState<string | "">("");
   const [source, setSource] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
-  const [tab, setTab] = useState<"reports" | "offers">("reports");
+  const [tab, setTab] = useState<"reports" | "offers" | "digest">("reports");
 
   const saveMut = useMutation({
     mutationFn: async (t: { id?: string; name: string; body: string }) => save({ data: t }),
@@ -53,7 +54,7 @@ function ReportsPage() {
       </header>
 
       <nav className="flex gap-1 p-1 rounded-xl bg-surface-2/60 w-fit">
-        {([["reports", "Отчёты"], ["offers", "Офферы"]] as const).map(([k, label]) => (
+        {([["reports", "Отчёты"], ["offers", "Офферы"], ["digest", "Дайджест"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`text-sm px-4 py-1.5 rounded-lg transition ${tab === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
             {label}
@@ -62,6 +63,7 @@ function ReportsPage() {
       </nav>
 
       {tab === "offers" && <OffersFunnel />}
+      {tab === "digest" && <DigestPanel />}
 
       {tab === "reports" && (<>
       <div className="grid gap-6 lg:grid-cols-2">
