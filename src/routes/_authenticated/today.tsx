@@ -191,7 +191,14 @@ function TodayPage() {
               <ul className="space-y-3">
                 {offerTasks.map(({ offer, stage, pending }) => (
                   <li key={offer.id}>
-                    <p className="text-sm font-medium truncate">{offer.student_name}</p>
+                    <p className="text-sm font-medium truncate">
+                      {offer.student_name}
+                      {offer.track && (
+                        <span className="ml-2 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary align-middle">
+                          {offer.track}
+                        </span>
+                      )}
+                    </p>
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{stage.title}</p>
                     <ul className="mt-1.5 space-y-1">
                       {pending.map((t) => (

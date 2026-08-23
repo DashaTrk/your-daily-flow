@@ -18,6 +18,7 @@ type RouterOutput = {
     stage?: "maybe" | "got" | "working" | null;
     company?: string | null;
     start_date?: string | null;
+    track?: "C#" | "Java" | "Golang" | null;
     note?: string | null;
   };
 };
@@ -52,7 +53,7 @@ export const routeChatMessage = createServerFn({ method: "POST" })
 - "update": КОРРЕКЦИЯ последнего действия ("сегодня а не завтра", "перенеси на 11", "нет, назови иначе")
 - "reply": вопрос или диалог без действия
 - "note": заметка без действия
-- "offer": сообщение про УЧЕНИКА и его трудоустройство ("Владислав Орехов получил оффер Java", "Аня возможно получит оффер", "Петров вышел на работу", "у Орехова дата выхода 1 сентября"). Заполни offer.student_name (ФИО как названо), offer.stage: "maybe" (возможно получит / собеседование / ждём ответ), "got" (получил оффер), "working" (вышел на работу). offer.company — направление/компания, если названо ("Java"). offer.start_date — дата выхода в формате YYYY-MM-DD, если названа.
+- "offer": сообщение про УЧЕНИКА и его трудоустройство ("Владислав Орехов получил оффер Java", "Аня возможно получит оффер", "Петров вышел на работу", "у Орехова дата выхода 1 сентября"). Заполни offer.student_name (ФИО как названо), offer.stage: "maybe" (возможно получит / собеседование / ждём ответ), "got" (получил оффер), "working" (вышел на работу). offer.company — направление/компания, если названо ("Java"). offer.start_date — дата выхода в формате YYYY-MM-DD, если названа. offer.track — направление обучения строго одно из "C#", "Java", "Golang", если оно упомянуто (например «получил оффер Java» → track: "Java", «шарпы»/«си шарп»/«C#» → "C#", «го»/«golang» → "Golang").
 
 
 КРИТИЧНО:
@@ -209,9 +210,10 @@ export const routeChatMessage = createServerFn({ method: "POST" })
         const { data: existing } = await supabase.from("offers")
           .select("*").eq("user_id", userId).ilike("student_name", o.student_name).maybeSingle();
 
-        const patch: { stage?: string; company?: string; note?: string; start_date?: string; tasks?: Record<string, string> } = {};
+        const patch: { stage?: string; company?: string; track?: string; note?: string; start_date?: string; tasks?: Record<string, string> } = {};
         if (o.stage) patch.stage = o.stage;
         if (o.company) patch.company = o.company;
+        if (o.track) patch.track = o.track;
         if (o.note) patch.note = o.note;
         if (o.start_date) {
           patch.start_date = o.start_date;
@@ -231,6 +233,7 @@ export const routeChatMessage = createServerFn({ method: "POST" })
             student_name: o.student_name,
             stage: o.stage ?? "maybe",
             company: o.company ?? null,
+            track: o.track ?? null,
             note: o.note ?? null,
             start_date: o.start_date ?? null,
             tasks: patch.tasks ?? {},
