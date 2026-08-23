@@ -52,6 +52,18 @@ function ReportsPage() {
         <p className="text-sm text-muted-foreground">Наговорите или напишите — AI заполнит ваш шаблон.</p>
       </header>
 
+      <nav className="flex gap-1 p-1 rounded-xl bg-surface-2/60 w-fit">
+        {([["reports", "Отчёты"], ["offers", "Офферы"]] as const).map(([k, label]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`text-sm px-4 py-1.5 rounded-lg transition ${tab === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {tab === "offers" && <OffersFunnel />}
+
+      {tab === "reports" && (<>
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Templates */}
         <section className="glass rounded-2xl p-5">
