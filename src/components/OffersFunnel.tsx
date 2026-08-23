@@ -37,6 +37,9 @@ export function OffersFunnel() {
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
   const [track, setTrack] = useState<TrackKey | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overStage, setOverStage] = useState<StageKey | null>(null);
 
   const addMut = useMutation({
     mutationFn: async (stage: StageKey) =>
