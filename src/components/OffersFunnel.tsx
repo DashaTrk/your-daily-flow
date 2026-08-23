@@ -93,7 +93,28 @@ export function OffersFunnel() {
         {STAGES.map((stage) => {
           const stageOffers = offers.filter((o) => o.stage === stage.key);
           return (
-            <div key={stage.key} className="w-full space-y-3">
+            <div
+              key={stage.key}
+              onDragOver={(e) => {
+                if (dragId) {
+                  e.preventDefault();
+                  setOverStage(stage.key);
+                }
+              }}
+              onDragLeave={() => setOverStage((s) => (s === stage.key ? null : s))}
+              onDrop={(e) => {
+                e.preventDefault();
+                const id = dragId ?? e.dataTransfer.getData("text/plain");
+                setOverStage(null);
+                setDragId(null);
+                if (!id) return;
+                const cur = offers.find((o) => o.id === id);
+                if (cur && cur.stage !== stage.key) updMut.mutate({ id, stage: stage.key });
+              }}
+              className={`w-full space-y-3 rounded-xl transition ${
+                overStage === stage.key ? "ring-2 ring-primary/50 bg-primary/5" : ""
+              }`}
+            >
               {/* Заголовок этапа — равная рамка */}
               <div className="rounded-xl border border-border bg-surface-2/60 p-3 h-20 flex items-center justify-between gap-2">
                 <div className="min-w-0">
