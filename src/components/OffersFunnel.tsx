@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Plus, Trash2, Check, ChevronLeft, ChevronRight, Loader2, CalendarDays } from "lucide-react";
+import { Plus, Trash2, Check, ChevronDown, Loader2, CalendarDays, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/date-utils";
-import { STAGES, STAGE_ORDER, type StageKey } from "@/lib/offer-stages";
+import { STAGES, type StageKey } from "@/lib/offer-stages";
 import {
   listOffers,
   createOffer,
@@ -37,6 +37,9 @@ export function OffersFunnel() {
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
   const [track, setTrack] = useState<TrackKey | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overStage, setOverStage] = useState<StageKey | null>(null);
 
   const addMut = useMutation({
     mutationFn: async (stage: StageKey) =>
@@ -90,7 +93,28 @@ export function OffersFunnel() {
         {STAGES.map((stage) => {
           const stageOffers = offers.filter((o) => o.stage === stage.key);
           return (
-            <div key={stage.key} className="w-full space-y-3">
+            <div
+              key={stage.key}
+              onDragOver={(e) => {
+                if (dragId) {
+                  e.preventDefault();
+                  setOverStage(stage.key);
+                }
+              }}
+              onDragLeave={() => setOverStage((s) => (s === stage.key ? null : s))}
+              onDrop={(e) => {
+                e.preventDefault();
+                const id = dragId ?? e.dataTransfer.getData("text/plain");
+                setOverStage(null);
+                setDragId(null);
+                if (!id) return;
+                const cur = offers.find((o) => o.id === id);
+                if (cur && cur.stage !== stage.key) updMut.mutate({ id, stage: stage.key });
+              }}
+              className={`w-full space-y-3 rounded-xl transition ${
+                overStage === stage.key ? "ring-2 ring-primary/50 bg-primary/5" : ""
+              }`}
+            >
               {/* Заголовок этапа — равная рамка */}
               <div className="rounded-xl border border-border bg-surface-2/60 p-3 h-20 flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -160,50 +184,57 @@ export function OffersFunnel() {
                   {stageOffers.map((o) => {
                     const tasks = (o.tasks ?? {}) as Record<string, string>;
                     const doneCount = stage.tasks.filter((t) => tasks[t.key]).length;
-                    const stageIdx = STAGE_ORDER.indexOf(o.stage);
+                    const isOpen = !!expanded[o.id];
+                    const pending = stage.tasks.filter((t) => !tasks[t.key]);
+                    const visibleTasks = isOpen ? stage.tasks : pending;
                     return (
-                      <article key={o.id} className="group rounded-xl bg-surface-2/60 border border-border p-3">
+                      <article
+                        key={o.id}
+                        draggable
+                        onDragStart={(e) => {
+                          setDragId(o.id);
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", o.id);
+                        }}
+                        onDragEnd={() => {
+                          setDragId(null);
+                          setOverStage(null);
+                        }}
+                        className={`group rounded-xl bg-surface-2/60 border border-border p-3 cursor-grab active:cursor-grabbing transition ${
+                          dragId === o.id ? "opacity-50" : ""
+                        }`}
+                      >
                         <div className="flex items-start gap-2">
+                          <GripVertical className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/40" />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">{o.student_name}</p>
-                            <div className="mt-1 flex flex-wrap items-center gap-1">
-                              {TRACKS.map((t) => {
-                                const active = o.track === t;
-                                return (
-                                  <button
-                                    key={t}
-                                    onClick={() =>
-                                      updMut.mutate({ id: o.id, track: active ? null : t })
-                                    }
-                                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border transition ${
-                                      active
-                                        ? TRACK_STYLES[t]
-                                        : "border-border text-muted-foreground/60 hover:text-foreground"
-                                    } ${o.track && !active ? "hidden group-hover:inline-flex" : ""}`}
-                                  >
-                                    {t}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            {o.company && (
-                              <p className="mt-1 text-xs text-muted-foreground truncate">{o.company}</p>
+                            {o.track && (
+                              <span
+                                className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold border ${TRACK_STYLES[o.track as TrackKey]}`}
+                              >
+                                {o.track}
+                              </span>
                             )}
                           </div>
                           <span className="text-[11px] font-mono text-muted-foreground shrink-0">
                             {doneCount}/{stage.tasks.length}
                           </span>
                           <button
-                            onClick={() => delMut.mutate(o.id)}
-                            className="opacity-0 group-hover:opacity-100 transition text-muted-foreground hover:text-destructive"
-                            aria-label="Удалить"
+                            onClick={() => setExpanded((s) => ({ ...s, [o.id]: !isOpen }))}
+                            className="shrink-0 text-muted-foreground hover:text-foreground"
+                            aria-label={isOpen ? "Свернуть" : "Развернуть"}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <ChevronDown
+                              className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                            />
                           </button>
                         </div>
 
                         <ul className="mt-3 space-y-1.5">
-                          {stage.tasks.map((t) => {
+                          {visibleTasks.length === 0 && (
+                            <li className="text-[11px] text-success/80">Все задачи этапа выполнены</li>
+                          )}
+                          {visibleTasks.map((t) => {
                             const at = tasks[t.key];
                             return (
                               <li key={t.key}>
@@ -240,39 +271,53 @@ export function OffersFunnel() {
                           })}
                         </ul>
 
-                        {(stage.key === "got" || o.start_date) && (
-                          <label className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
-                            <CalendarDays className="h-3.5 w-3.5 text-secondary shrink-0" />
-                            <span className="shrink-0">Дата выхода</span>
-                            <input
-                              type="date"
-                              value={o.start_date ?? ""}
-                              onChange={(e) =>
-                                updMut.mutate({ id: o.id, start_date: e.target.value || null })
-                              }
-                              className="flex-1 min-w-0 bg-input/40 rounded-md px-2 py-1 text-xs border border-border focus:border-primary outline-none"
-                            />
-                          </label>
-                        )}
+                        {isOpen && (
+                          <div className="mt-3 space-y-3 border-t border-border pt-3">
+                            {o.company && (
+                              <p className="text-xs text-muted-foreground truncate">{o.company}</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-1">
+                              {TRACKS.map((t) => {
+                                const active = o.track === t;
+                                return (
+                                  <button
+                                    key={t}
+                                    onClick={() => updMut.mutate({ id: o.id, track: active ? null : t })}
+                                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border transition ${
+                                      active
+                                        ? TRACK_STYLES[t]
+                                        : "border-border text-muted-foreground/60 hover:text-foreground"
+                                    }`}
+                                  >
+                                    {t}
+                                  </button>
+                                );
+                              })}
+                            </div>
 
-                        <div className="mt-3 flex items-center justify-between">
-                          <button
-                            disabled={stageIdx <= 0}
-                            onClick={() => updMut.mutate({ id: o.id, stage: STAGE_ORDER[stageIdx - 1] })}
-                            className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 flex items-center gap-0.5"
-                          >
-                            <ChevronLeft className="h-3 w-3" />
-                            назад
-                          </button>
-                          <button
-                            disabled={stageIdx >= STAGE_ORDER.length - 1}
-                            onClick={() => updMut.mutate({ id: o.id, stage: STAGE_ORDER[stageIdx + 1] })}
-                            className="text-[11px] text-primary hover:underline disabled:opacity-30 flex items-center gap-0.5"
-                          >
-                            дальше
-                            <ChevronRight className="h-3 w-3" />
-                          </button>
-                        </div>
+                            {(stage.key === "got" || o.start_date) && (
+                              <label className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                <CalendarDays className="h-3.5 w-3.5 text-secondary shrink-0" />
+                                <span className="shrink-0">Дата выхода</span>
+                                <input
+                                  type="date"
+                                  value={o.start_date ?? ""}
+                                  onChange={(e) =>
+                                    updMut.mutate({ id: o.id, start_date: e.target.value || null })
+                                  }
+                                  className="flex-1 min-w-0 bg-input/40 rounded-md px-2 py-1 text-xs border border-border focus:border-primary outline-none"
+                                />
+                              </label>
+                            )}
+
+                            <button
+                              onClick={() => delMut.mutate(o.id)}
+                              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" /> Удалить
+                            </button>
+                          </div>
+                        )}
                       </article>
                     );
                   })}
