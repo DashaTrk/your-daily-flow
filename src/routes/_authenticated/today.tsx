@@ -209,7 +209,9 @@ function TodayPage() {
               })}
             </ol>
           )}
+        </div>
         </section>
+
 
         {/* Sidebar */}
         <aside className="space-y-4">
