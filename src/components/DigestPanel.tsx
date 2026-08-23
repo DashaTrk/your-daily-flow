@@ -160,17 +160,26 @@ export function DigestPanel() {
             </div>
 
             <div className="space-y-2 rounded-xl bg-surface-2/60 p-3">
-              <select
-                value={form.section}
-                onChange={(e) => setForm({ ...form, section: e.target.value })}
-                className="w-full rounded-lg border border-border bg-input/40 px-3 py-2 text-sm outline-none focus:border-primary"
-              >
-                {DIGEST_SECTIONS.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.title.replace(":", "")}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <p className="mb-1.5 text-xs uppercase tracking-wide text-muted-foreground">Раздел отчёта</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {DIGEST_SECTIONS.map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      onClick={() => setForm({ ...form, section: s.key })}
+                      className={`rounded-lg border px-2.5 py-1 text-xs transition ${
+                        form.section === s.key
+                          ? "border-primary/50 bg-primary/15 text-primary"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {s.title.replace(":", "")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <input
                 value={form.student_name}
                 onChange={(e) => setForm({ ...form, student_name: e.target.value })}
