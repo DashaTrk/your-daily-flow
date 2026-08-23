@@ -143,6 +143,7 @@ export type Database = {
           id: string
           note: string | null
           stage: string
+          start_date: string | null
           student_name: string
           tasks: Json
           updated_at: string
@@ -154,6 +155,7 @@ export type Database = {
           id?: string
           note?: string | null
           stage?: string
+          start_date?: string | null
           student_name: string
           tasks?: Json
           updated_at?: string
@@ -165,6 +167,7 @@ export type Database = {
           id?: string
           note?: string | null
           stage?: string
+          start_date?: string | null
           student_name?: string
           tasks?: Json
           updated_at?: string

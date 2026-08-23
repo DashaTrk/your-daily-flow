@@ -6,13 +6,20 @@ import { z } from "zod";
 const RouteInput = z.object({ text: z.string().min(1).max(4000) });
 
 type RouterOutput = {
-  kind: "task" | "list_item" | "event" | "note" | "reply" | "update";
+  kind: "task" | "list_item" | "event" | "note" | "reply" | "update" | "offer";
   reply: string;
   task?: { title: string; due_at?: string | null; notes?: string | null; priority?: string };
   list_item?: { list_name: string; list_kind: "shopping" | "todo" | "custom"; items: string[] };
   event?: { title: string; start_at: string; duration_minutes?: number | null; notes?: string | null };
   reminder?: { title: string; remind_at: string } | null;
   update?: { target: "last_task"; new_due_at?: string | null; new_title?: string | null };
+  offer?: {
+    student_name: string;
+    stage?: "maybe" | "got" | "working" | null;
+    company?: string | null;
+    start_date?: string | null;
+    note?: string | null;
+  };
 };
 
 export const routeChatMessage = createServerFn({ method: "POST" })
@@ -45,6 +52,8 @@ export const routeChatMessage = createServerFn({ method: "POST" })
 - "update": КОРРЕКЦИЯ последнего действия ("сегодня а не завтра", "перенеси на 11", "нет, назови иначе")
 - "reply": вопрос или диалог без действия
 - "note": заметка без действия
+- "offer": сообщение про УЧЕНИКА и его трудоустройство ("Владислав Орехов получил оффер Java", "Аня возможно получит оффер", "Петров вышел на работу", "у Орехова дата выхода 1 сентября"). Заполни offer.student_name (ФИО как названо), offer.stage: "maybe" (возможно получит / собеседование / ждём ответ), "got" (получил оффер), "working" (вышел на работу). offer.company — направление/компания, если названо ("Java"). offer.start_date — дата выхода в формате YYYY-MM-DD, если названа.
+
 
 КРИТИЧНО:
 - Если пользователь ЯВНО говорит "в список дел / покупок / …" — это list_item, а не task. list_name бери из фразы ("Дела", "Покупки"). Дату/день (понедельник) вставь в текст элемента списка.
@@ -195,6 +204,41 @@ export const routeChatMessage = createServerFn({ method: "POST" })
         if (!actionOk) {
           parsed.reply = "Не нашёл, что править — уточните, пожалуйста.";
         }
+      } else if (parsed.kind === "offer" && parsed.offer?.student_name) {
+        const o = parsed.offer;
+        const { data: existing } = await supabase.from("offers")
+          .select("*").eq("user_id", userId).ilike("student_name", o.student_name).maybeSingle();
+
+        const patch: { stage?: string; company?: string; note?: string; start_date?: string; tasks?: Record<string, string> } = {};
+        if (o.stage) patch.stage = o.stage;
+        if (o.company) patch.company = o.company;
+        if (o.note) patch.note = o.note;
+        if (o.start_date) {
+          patch.start_date = o.start_date;
+          const tasks = { ...((existing?.tasks as Record<string, string>) ?? {}) };
+          if (!tasks.start_date) tasks.start_date = new Date().toISOString();
+          patch.tasks = tasks;
+        }
+
+        if (existing) {
+          const { data: upd, error } = await supabase.from("offers")
+            .update(patch).eq("id", existing.id).eq("user_id", userId).select().single();
+          if (error) throw error;
+          created.offer = upd;
+        } else {
+          const { data: ins, error } = await supabase.from("offers").insert({
+            user_id: userId,
+            student_name: o.student_name,
+            stage: o.stage ?? "maybe",
+            company: o.company ?? null,
+            note: o.note ?? null,
+            start_date: o.start_date ?? null,
+            tasks: patch.tasks ?? {},
+          }).select().single();
+          if (error) throw error;
+          created.offer = ins;
+        }
+        actionOk = true;
       }
     } catch (e: any) {
       parsed.reply = `Не удалось сохранить: ${e?.message ?? "ошибка"}`;

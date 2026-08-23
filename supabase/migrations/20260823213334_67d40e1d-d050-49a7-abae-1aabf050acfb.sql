@@ -1,0 +1,1 @@
+ALTER TABLE public.offers ADD COLUMN start_date date;

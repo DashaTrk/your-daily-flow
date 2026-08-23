@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Plus, Trash2, Check, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Plus, Trash2, Check, ChevronLeft, ChevronRight, Loader2, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/date-utils";
+import { STAGES, STAGE_ORDER, type StageKey } from "@/lib/offer-stages";
 import {
   listOffers,
   createOffer,
@@ -11,40 +12,6 @@ import {
   toggleOfferTask,
   deleteOffer,
 } from "@/lib/offers.functions";
-
-type StageKey = "maybe" | "got" | "working";
-
-export const STAGES: { key: StageKey; title: string; hint: string; tasks: { key: string; label: string }[] }[] = [
-  {
-    key: "maybe",
-    title: "Возможно получит оффер",
-    hint: "первичный контакт",
-    tasks: [{ key: "news", label: "Узнать новости" }],
-  },
-  {
-    key: "got",
-    title: "Получил оффер",
-    hint: "оформление",
-    tasks: [
-      { key: "request_offer", label: "Запросить оффер" },
-      { key: "crm", label: "Внести информацию в CRM" },
-      { key: "start_date", label: "Узнать дату выхода" },
-    ],
-  },
-  {
-    key: "working",
-    title: "Вышел на работу",
-    hint: "сопровождение",
-    tasks: [
-      { key: "first_day", label: "Узнать как прошёл первый рабочий день" },
-      { key: "review", label: "Запросить отзыв" },
-      { key: "schedule", label: "Составить график оплат" },
-      { key: "schedule_bot", label: "Внести график в бот" },
-    ],
-  },
-];
-
-const STAGE_ORDER: StageKey[] = ["maybe", "got", "working"];
 
 export function OffersFunnel() {
   const qc = useQueryClient();
@@ -79,8 +46,9 @@ export function OffersFunnel() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const moveMut = useMutation({
-    mutationFn: async (v: { id: string; stage: StageKey }) => upd({ data: v }),
+  const updMut = useMutation({
+    mutationFn: async (v: { id: string; stage?: StageKey; start_date?: string | null }) =>
+      upd({ data: v }),
     onSuccess: invalidate,
     onError: (e: any) => toast.error(e.message),
   });
@@ -99,7 +67,8 @@ export function OffersFunnel() {
         <div>
           <h2 className="font-display text-xl font-semibold">Офферы</h2>
           <p className="text-sm text-muted-foreground">
-            Воронка учеников — от первых новостей до выхода на работу.
+            Воронка учеников — от первых новостей до выхода на работу. Можно добавлять здесь или
+            через ассистента: «Владислав Орехов получил оффер Java».
           </p>
         </div>
         {offersQ.isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
@@ -140,7 +109,7 @@ export function OffersFunnel() {
                     <input
                       value={company}
                       onChange={(e) => setCompany(e.target.value)}
-                      placeholder="Компания (необязательно)"
+                      placeholder="Компания / направление"
                       className="w-full bg-input/40 rounded-lg px-3 py-2 text-sm outline-none border border-border focus:border-primary"
                     />
                     <div className="flex justify-end gap-2">
@@ -228,12 +197,25 @@ export function OffersFunnel() {
                           })}
                         </ul>
 
+                        {(stage.key === "got" || o.start_date) && (
+                          <label className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <CalendarDays className="h-3.5 w-3.5 text-secondary shrink-0" />
+                            <span className="shrink-0">Дата выхода</span>
+                            <input
+                              type="date"
+                              value={o.start_date ?? ""}
+                              onChange={(e) =>
+                                updMut.mutate({ id: o.id, start_date: e.target.value || null })
+                              }
+                              className="flex-1 min-w-0 bg-input/40 rounded-md px-2 py-1 text-xs border border-border focus:border-primary outline-none"
+                            />
+                          </label>
+                        )}
+
                         <div className="mt-3 flex items-center justify-between">
                           <button
                             disabled={stageIdx <= 0}
-                            onClick={() =>
-                              moveMut.mutate({ id: o.id, stage: STAGE_ORDER[stageIdx - 1] })
-                            }
+                            onClick={() => updMut.mutate({ id: o.id, stage: STAGE_ORDER[stageIdx - 1] })}
                             className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 flex items-center gap-0.5"
                           >
                             <ChevronRight className="h-3 w-3" />
@@ -241,9 +223,7 @@ export function OffersFunnel() {
                           </button>
                           <button
                             disabled={stageIdx >= STAGE_ORDER.length - 1}
-                            onClick={() =>
-                              moveMut.mutate({ id: o.id, stage: STAGE_ORDER[stageIdx + 1] })
-                            }
+                            onClick={() => updMut.mutate({ id: o.id, stage: STAGE_ORDER[stageIdx + 1] })}
                             className="text-[11px] text-primary hover:underline disabled:opacity-30 flex items-center gap-0.5"
                           >
                             дальше

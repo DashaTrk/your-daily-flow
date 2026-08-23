@@ -2,9 +2,22 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+/** Moves cards from "got" to "working" once their start_date has arrived. */
+async function autoPromote(supabase: any, userId: string) {
+  const today = new Date().toISOString().slice(0, 10);
+  await supabase
+    .from("offers")
+    .update({ stage: "working" })
+    .eq("user_id", userId)
+    .eq("stage", "got")
+    .not("start_date", "is", null)
+    .lte("start_date", today);
+}
+
 export const listOffers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await autoPromote(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("offers")
       .select("*")
@@ -22,6 +35,7 @@ export const createOffer = createServerFn({ method: "POST" })
         student_name: z.string().min(1),
         company: z.string().nullable().optional(),
         note: z.string().nullable().optional(),
+        start_date: z.string().nullable().optional(),
         stage: z.enum(["maybe", "got", "working"]).optional(),
       })
       .parse(d),
@@ -45,6 +59,7 @@ export const updateOffer = createServerFn({ method: "POST" })
         student_name: z.string().min(1).optional(),
         company: z.string().nullable().optional(),
         note: z.string().nullable().optional(),
+        start_date: z.string().nullable().optional(),
         stage: z.enum(["maybe", "got", "working"]).optional(),
       })
       .parse(d),

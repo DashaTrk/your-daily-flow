@@ -3,7 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listTasks, listReminders } from "@/lib/data.functions";
 import { toggleTask, deleteTask } from "@/lib/data.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, Trash2, CalendarClock, ListChecks, Bell, MessageSquare, Sparkles } from "lucide-react";
+import { Check, Trash2, CalendarClock, ListChecks, Bell, MessageSquare, Sparkles, Briefcase } from "lucide-react";
+import { listOffers, toggleOfferTask } from "@/lib/offers.functions";
+import { stageByKey } from "@/lib/offer-stages";
 import { fmtTime, sameDay } from "@/lib/date-utils";
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
@@ -23,6 +25,16 @@ function TodayPage() {
 
   const tasksQ = useQuery({ queryKey: ["tasks"], queryFn: () => fetchTasks() });
   const remQ = useQuery({ queryKey: ["reminders"], queryFn: () => fetchReminders() });
+  const fetchOffers = useServerFn(listOffers);
+  const toggleOffer = useServerFn(toggleOfferTask);
+  const offersQ = useQuery({ queryKey: ["offers"], queryFn: () => fetchOffers() });
+
+  const offerTasks = ((offersQ.data ?? []) as any[]).flatMap((o) => {
+    const stage = stageByKey(o.stage);
+    const done = (o.tasks ?? {}) as Record<string, string>;
+    const pending = stage.tasks.filter((t) => !done[t.key]);
+    return pending.length ? [{ offer: o, stage, pending }] : [];
+  });
 
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -164,6 +176,42 @@ function TodayPage() {
                   <li key={r.id} className="text-sm flex items-baseline gap-2">
                     <span className="text-xs font-mono text-secondary">{fmtTime(r.remind_at)}</span>
                     <span className="truncate">{r.title}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {offerTasks.length > 0 && (
+            <div className="glass rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Briefcase className="h-4 w-4 text-primary" />
+                <h2 className="font-display font-semibold">Офферы</h2>
+              </div>
+              <ul className="space-y-3">
+                {offerTasks.map(({ offer, stage, pending }) => (
+                  <li key={offer.id}>
+                    <p className="text-sm font-medium truncate">{offer.student_name}</p>
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{stage.title}</p>
+                    <ul className="mt-1.5 space-y-1">
+                      {pending.map((t) => (
+                        <li key={t.key}>
+                          <button
+                            onClick={() =>
+                              toggleOffer({ data: { id: offer.id, key: t.key, done: true } }).then(() =>
+                                qc.invalidateQueries({ queryKey: ["offers"] }),
+                              )
+                            }
+                            className="w-full flex items-start gap-2 text-left group/task"
+                          >
+                            <span className="mt-0.5 h-4 w-4 shrink-0 rounded-md border border-border text-transparent group-hover/task:border-primary flex items-center justify-center">
+                              <Check className="h-3 w-3" />
+                            </span>
+                            <span className="text-xs leading-snug text-foreground/90">{t.label}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   </li>
                 ))}
               </ul>
