@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Plus, Trash2, Check, ChevronDown, Loader2, CalendarDays, GripVertical } from "lucide-react";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/date-utils";
-import { STAGES, STAGE_ORDER, type StageKey } from "@/lib/offer-stages";
+import { STAGES, type StageKey } from "@/lib/offer-stages";
 import {
   listOffers,
   createOffer,
