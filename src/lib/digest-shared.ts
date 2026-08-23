@@ -57,8 +57,9 @@ export type DigestEntry = {
  */
 export function renderDigest(track: string, weekStart: string, entries: DigestEntry[]): string {
   const lines: string[] = [];
-  lines.push(`**Дайджест за неделю ${weekRangeLabel(weekStart)}**`);
+  lines.push(`**${weekRangeLabel(weekStart)}**`);
   lines.push(`**${track}**`);
+
 
   for (const s of DIGEST_SECTIONS) {
     const rows = entries.filter((e) => e.section === s.key);
