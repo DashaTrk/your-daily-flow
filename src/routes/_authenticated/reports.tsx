@@ -157,6 +157,7 @@ function ReportsPage() {
           </div>
         )}
       </section>
+      </>)}
     </div>
   );
 }
