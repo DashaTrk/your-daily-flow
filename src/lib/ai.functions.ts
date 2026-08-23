@@ -6,7 +6,7 @@ import { z } from "zod";
 const RouteInput = z.object({ text: z.string().min(1).max(4000) });
 
 type RouterOutput = {
-  kind: "task" | "list_item" | "event" | "note" | "reply" | "update" | "offer";
+  kind: "task" | "list_item" | "event" | "note" | "reply" | "update" | "offer" | "digest" | "digest_sent";
   reply: string;
   task?: { title: string; due_at?: string | null; notes?: string | null; priority?: string };
   list_item?: { list_name: string; list_kind: "shopping" | "todo" | "custom"; items: string[] };
@@ -21,6 +21,14 @@ type RouterOutput = {
     track?: "C#" | "Java" | "Golang" | null;
     note?: string | null;
   };
+  digest?: {
+    student_name: string;
+    track: "C#" | "Java" | "Golang";
+    section: "declarations" | "interviews" | "legend" | "cards";
+    comment?: string | null;
+    flagged?: boolean | null;
+  };
+  digest_sent?: { track: "C#" | "Java" | "Golang" };
 };
 
 export const routeChatMessage = createServerFn({ method: "POST" })
