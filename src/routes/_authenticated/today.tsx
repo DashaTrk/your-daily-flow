@@ -108,11 +108,59 @@ function TodayPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* Timeline */}
-        <section className="glass rounded-2xl p-5">
+        <section className="space-y-6">
+        {offerTasks.length > 0 && (
+          <div className="glass rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Briefcase className="h-4 w-4 text-primary" />
+              <h2 className="font-display font-semibold">Задачи по офферам</h2>
+              <span className="ml-auto text-xs text-muted-foreground">
+                {offerTasks.reduce((s, o) => s + o.pending.length, 0)} невыполнено
+              </span>
+            </div>
+            <ul className="space-y-3">
+              {offerTasks.map(({ offer, stage, pending }) => (
+                <li key={offer.id} className="rounded-xl border border-border bg-surface-2/50 p-3">
+                  <p className="text-sm font-medium truncate">
+                    {offer.student_name}
+                    {offer.track && (
+                      <span className="ml-2 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary align-middle">
+                        {offer.track}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{stage.title}</p>
+                  <ul className="mt-2 space-y-1.5">
+                    {pending.map((t) => (
+                      <li key={t.key}>
+                        <button
+                          onClick={() =>
+                            toggleOffer({ data: { id: offer.id, key: t.key, done: true } }).then(() =>
+                              qc.invalidateQueries({ queryKey: ["offers"] }),
+                            )
+                          }
+                          className="w-full flex items-start gap-2 text-left group/task"
+                        >
+                          <span className="mt-0.5 h-4 w-4 shrink-0 rounded-md border border-border text-transparent group-hover/task:border-primary flex items-center justify-center">
+                            <Check className="h-3 w-3" />
+                          </span>
+                          <span className="text-xs leading-snug text-foreground/90">{t.label}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="glass rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <CalendarClock className="h-4 w-4 text-secondary" />
             <h2 className="font-display font-semibold">Расписание на сегодня</h2>
           </div>
+
 
           {scheduled.length === 0 ? (
             <EmptyState />
@@ -161,7 +209,9 @@ function TodayPage() {
               })}
             </ol>
           )}
+        </div>
         </section>
+
 
         {/* Sidebar */}
         <aside className="space-y-4">
@@ -182,48 +232,8 @@ function TodayPage() {
             </div>
           )}
 
-          {offerTasks.length > 0 && (
-            <div className="glass rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Briefcase className="h-4 w-4 text-primary" />
-                <h2 className="font-display font-semibold">Офферы</h2>
-              </div>
-              <ul className="space-y-3">
-                {offerTasks.map(({ offer, stage, pending }) => (
-                  <li key={offer.id}>
-                    <p className="text-sm font-medium truncate">
-                      {offer.student_name}
-                      {offer.track && (
-                        <span className="ml-2 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary align-middle">
-                          {offer.track}
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{stage.title}</p>
-                    <ul className="mt-1.5 space-y-1">
-                      {pending.map((t) => (
-                        <li key={t.key}>
-                          <button
-                            onClick={() =>
-                              toggleOffer({ data: { id: offer.id, key: t.key, done: true } }).then(() =>
-                                qc.invalidateQueries({ queryKey: ["offers"] }),
-                              )
-                            }
-                            className="w-full flex items-start gap-2 text-left group/task"
-                          >
-                            <span className="mt-0.5 h-4 w-4 shrink-0 rounded-md border border-border text-transparent group-hover/task:border-primary flex items-center justify-center">
-                              <Check className="h-3 w-3" />
-                            </span>
-                            <span className="text-xs leading-snug text-foreground/90">{t.label}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+
+
 
           <div className="glass rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-3">
