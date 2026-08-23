@@ -13,6 +13,15 @@ import {
   deleteOffer,
 } from "@/lib/offers.functions";
 
+export const TRACKS = ["C#", "Java", "Golang"] as const;
+export type TrackKey = (typeof TRACKS)[number];
+
+const TRACK_STYLES: Record<TrackKey, string> = {
+  "C#": "border-primary/50 bg-primary/15 text-primary",
+  Java: "border-secondary/50 bg-secondary/15 text-secondary",
+  Golang: "border-success/50 bg-success/15 text-success",
+};
+
 export function OffersFunnel() {
   const qc = useQueryClient();
   const fetchOffers = useServerFn(listOffers);
@@ -27,13 +36,15 @@ export function OffersFunnel() {
   const [adding, setAdding] = useState<StageKey | null>(null);
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
+  const [track, setTrack] = useState<TrackKey | null>(null);
 
   const addMut = useMutation({
     mutationFn: async (stage: StageKey) =>
-      add({ data: { student_name: name.trim(), company: company.trim() || null, stage } }),
+      add({ data: { student_name: name.trim(), company: company.trim() || null, track, stage } }),
     onSuccess: () => {
       setName("");
       setCompany("");
+      setTrack(null);
       setAdding(null);
       invalidate();
     },
@@ -47,7 +58,7 @@ export function OffersFunnel() {
   });
 
   const updMut = useMutation({
-    mutationFn: async (v: { id: string; stage?: StageKey; start_date?: string | null }) =>
+    mutationFn: async (v: { id: string; stage?: StageKey; start_date?: string | null; track?: TrackKey | null }) =>
       upd({ data: v }),
     onSuccess: invalidate,
     onError: (e: any) => toast.error(e.message),
@@ -74,13 +85,12 @@ export function OffersFunnel() {
         {offersQ.isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </header>
 
-      {/* Воронка: этапы идут справа налево */}
-      <div className="grid gap-4 lg:grid-cols-3 lg:[direction:rtl]">
-        {STAGES.map((stage, idx) => {
+      {/* Воронка: этапы идут слева направо */}
+      <div className="grid gap-4 md:grid-cols-3 items-start">
+        {STAGES.map((stage) => {
           const stageOffers = offers.filter((o) => o.stage === stage.key);
-          const width = ["100%", "94%", "88%"][idx];
           return (
-            <div key={stage.key} className="lg:[direction:ltr] mx-auto w-full" style={{ maxWidth: width }}>
+            <div key={stage.key} className="w-full">
               <div className="glass rounded-2xl p-4 h-full flex flex-col">
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div>
@@ -112,6 +122,19 @@ export function OffersFunnel() {
                       placeholder="Компания / направление"
                       className="w-full bg-input/40 rounded-lg px-3 py-2 text-sm outline-none border border-border focus:border-primary"
                     />
+                    <div className="flex flex-wrap gap-1.5">
+                      {TRACKS.map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setTrack(track === t ? null : t)}
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border transition ${
+                            track === t ? TRACK_STYLES[t] : "border-border text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={() => setAdding(null)}
@@ -143,8 +166,28 @@ export function OffersFunnel() {
                         <div className="flex items-start gap-2">
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">{o.student_name}</p>
+                            <div className="mt-1 flex flex-wrap items-center gap-1">
+                              {TRACKS.map((t) => {
+                                const active = o.track === t;
+                                return (
+                                  <button
+                                    key={t}
+                                    onClick={() =>
+                                      updMut.mutate({ id: o.id, track: active ? null : t })
+                                    }
+                                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border transition ${
+                                      active
+                                        ? TRACK_STYLES[t]
+                                        : "border-border text-muted-foreground/60 hover:text-foreground"
+                                    } ${o.track && !active ? "hidden group-hover:inline-flex" : ""}`}
+                                  >
+                                    {t}
+                                  </button>
+                                );
+                              })}
+                            </div>
                             {o.company && (
-                              <p className="text-xs text-muted-foreground truncate">{o.company}</p>
+                              <p className="mt-1 text-xs text-muted-foreground truncate">{o.company}</p>
                             )}
                           </div>
                           <span className="text-[11px] font-mono text-muted-foreground shrink-0">
@@ -218,7 +261,7 @@ export function OffersFunnel() {
                             onClick={() => updMut.mutate({ id: o.id, stage: STAGE_ORDER[stageIdx - 1] })}
                             className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 flex items-center gap-0.5"
                           >
-                            <ChevronRight className="h-3 w-3" />
+                            <ChevronLeft className="h-3 w-3" />
                             назад
                           </button>
                           <button
@@ -227,7 +270,7 @@ export function OffersFunnel() {
                             className="text-[11px] text-primary hover:underline disabled:opacity-30 flex items-center gap-0.5"
                           >
                             дальше
-                            <ChevronLeft className="h-3 w-3" />
+                            <ChevronRight className="h-3 w-3" />
                           </button>
                         </div>
                       </article>
