@@ -8,6 +8,7 @@ import { Plus, Trash2, FileText, Sparkles, Copy, Check, Loader2 } from "lucide-r
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/date-utils";
 import { OffersFunnel } from "@/components/OffersFunnel";
+import { DigestPanel } from "@/components/DigestPanel";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({ meta: [{ title: "Отчёты — Мой Ассистент" }, { name: "description", content: "Шаблоны отчётов и AI-помощник." }] }),
