@@ -90,70 +90,70 @@ export function OffersFunnel() {
         {STAGES.map((stage) => {
           const stageOffers = offers.filter((o) => o.stage === stage.key);
           return (
-            <div key={stage.key} className="w-full">
-              <div className="glass rounded-2xl p-4 h-full flex flex-col">
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div>
-                    <h3 className="font-semibold text-sm leading-tight">{stage.title}</h3>
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground mt-0.5">
-                      {stage.hint} · {stageOffers.length}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setAdding(adding === stage.key ? null : stage.key)}
-                    className="shrink-0 rounded-lg bg-primary/15 text-primary p-1.5 hover:bg-primary/25"
-                    aria-label="Добавить ученика"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
+            <div key={stage.key} className="w-full space-y-3">
+              {/* Заголовок этапа — равная рамка */}
+              <div className="rounded-xl border border-border bg-surface-2/60 p-3 h-20 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-sm leading-tight truncate">{stage.title}</h3>
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground mt-0.5">
+                    {stage.hint} · {stageOffers.length}
+                  </p>
                 </div>
+                <button
+                  onClick={() => setAdding(adding === stage.key ? null : stage.key)}
+                  className="shrink-0 rounded-lg bg-primary/15 text-primary p-1.5 hover:bg-primary/25"
+                  aria-label="Добавить ученика"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
 
-                {adding === stage.key && (
-                  <div className="mb-3 space-y-2 rounded-xl bg-surface-2/60 p-3">
-                    <input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Имя ученика"
-                      className="w-full bg-input/40 rounded-lg px-3 py-2 text-sm outline-none border border-border focus:border-primary"
-                    />
-                    <input
-                      value={company}
-                      onChange={(e) => setCompany(e.target.value)}
-                      placeholder="Компания / направление"
-                      className="w-full bg-input/40 rounded-lg px-3 py-2 text-sm outline-none border border-border focus:border-primary"
-                    />
-                    <div className="flex flex-wrap gap-1.5">
-                      {TRACKS.map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => setTrack(track === t ? null : t)}
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border transition ${
-                            track === t ? TRACK_STYLES[t] : "border-border text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex justify-end gap-2">
+              {adding === stage.key && (
+                <div className="space-y-2 rounded-xl bg-surface-2/60 p-3 border border-border">
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Имя ученика"
+                    className="w-full bg-input/40 rounded-lg px-3 py-2 text-sm outline-none border border-border focus:border-primary"
+                  />
+                  <input
+                    value={company}
+                    onChange={(e) => setCompany(e.target.value)}
+                    placeholder="Компания / направление"
+                    className="w-full bg-input/40 rounded-lg px-3 py-2 text-sm outline-none border border-border focus:border-primary"
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {TRACKS.map((t) => (
                       <button
-                        onClick={() => setAdding(null)}
-                        className="text-sm px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground"
+                        key={t}
+                        onClick={() => setTrack(track === t ? null : t)}
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border transition ${
+                          track === t ? TRACK_STYLES[t] : "border-border text-muted-foreground hover:text-foreground"
+                        }`}
                       >
-                        Отмена
+                        {t}
                       </button>
-                      <button
-                        disabled={!name.trim() || addMut.isPending}
-                        onClick={() => addMut.mutate(stage.key)}
-                        className="text-sm px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
-                      >
-                        Добавить
-                      </button>
-                    </div>
+                    ))}
                   </div>
-                )}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setAdding(null)}
+                      className="text-sm px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      disabled={!name.trim() || addMut.isPending}
+                      onClick={() => addMut.mutate(stage.key)}
+                      className="text-sm px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
+                    >
+                      Добавить
+                    </button>
+                  </div>
+                </div>
+              )}
 
-                <div className="space-y-3 flex-1">
+              <div className="space-y-3">
                   {stageOffers.length === 0 && (
                     <p className="text-xs text-muted-foreground py-6 text-center">Пусто</p>
                   )}
