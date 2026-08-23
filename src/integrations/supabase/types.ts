@@ -68,6 +68,108 @@ export type Database = {
         }
         Relationships: []
       }
+      digest_entries: {
+        Row: {
+          archived_at: string | null
+          comment: string
+          created_at: string
+          flagged: boolean
+          id: string
+          section: string
+          student_name: string
+          track: string
+          updated_at: string
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          archived_at?: string | null
+          comment?: string
+          created_at?: string
+          flagged?: boolean
+          id?: string
+          section?: string
+          student_name: string
+          track: string
+          updated_at?: string
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          archived_at?: string | null
+          comment?: string
+          created_at?: string
+          flagged?: boolean
+          id?: string
+          section?: string
+          student_name?: string
+          track?: string
+          updated_at?: string
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
+      digest_reports: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          sent_at: string
+          track: string
+          user_id: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          sent_at?: string
+          track: string
+          user_id: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          sent_at?: string
+          track?: string
+          user_id?: string
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
+      digest_weeks: {
+        Row: {
+          created_at: string
+          id: string
+          track: string
+          updated_at: string
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          track: string
+          updated_at?: string
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          track?: string
+          updated_at?: string
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       list_items: {
         Row: {
           checked: boolean
