@@ -1,0 +1,264 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
+import { Plus, Trash2, Check, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { fmtDate } from "@/lib/date-utils";
+import {
+  listOffers,
+  createOffer,
+  updateOffer,
+  toggleOfferTask,
+  deleteOffer,
+} from "@/lib/offers.functions";
+
+type StageKey = "maybe" | "got" | "working";
+
+export const STAGES: { key: StageKey; title: string; hint: string; tasks: { key: string; label: string }[] }[] = [
+  {
+    key: "maybe",
+    title: "Возможно получит оффер",
+    hint: "первичный контакт",
+    tasks: [{ key: "news", label: "Узнать новости" }],
+  },
+  {
+    key: "got",
+    title: "Получил оффер",
+    hint: "оформление",
+    tasks: [
+      { key: "request_offer", label: "Запросить оффер" },
+      { key: "crm", label: "Внести информацию в CRM" },
+      { key: "start_date", label: "Узнать дату выхода" },
+    ],
+  },
+  {
+    key: "working",
+    title: "Вышел на работу",
+    hint: "сопровождение",
+    tasks: [
+      { key: "first_day", label: "Узнать как прошёл первый рабочий день" },
+      { key: "review", label: "Запросить отзыв" },
+      { key: "schedule", label: "Составить график оплат" },
+      { key: "schedule_bot", label: "Внести график в бот" },
+    ],
+  },
+];
+
+const STAGE_ORDER: StageKey[] = ["maybe", "got", "working"];
+
+export function OffersFunnel() {
+  const qc = useQueryClient();
+  const fetchOffers = useServerFn(listOffers);
+  const add = useServerFn(createOffer);
+  const upd = useServerFn(updateOffer);
+  const toggle = useServerFn(toggleOfferTask);
+  const del = useServerFn(deleteOffer);
+
+  const offersQ = useQuery({ queryKey: ["offers"], queryFn: () => fetchOffers() });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["offers"] });
+
+  const [adding, setAdding] = useState<StageKey | null>(null);
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+
+  const addMut = useMutation({
+    mutationFn: async (stage: StageKey) =>
+      add({ data: { student_name: name.trim(), company: company.trim() || null, stage } }),
+    onSuccess: () => {
+      setName("");
+      setCompany("");
+      setAdding(null);
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: async (v: { id: string; key: string; done: boolean }) => toggle({ data: v }),
+    onSuccess: invalidate,
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const moveMut = useMutation({
+    mutationFn: async (v: { id: string; stage: StageKey }) => upd({ data: v }),
+    onSuccess: invalidate,
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const delMut = useMutation({
+    mutationFn: async (id: string) => del({ data: { id } }),
+    onSuccess: invalidate,
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const offers = (offersQ.data ?? []) as any[];
+
+  return (
+    <section className="space-y-4">
+      <header className="flex items-baseline justify-between gap-3">
+        <div>
+          <h2 className="font-display text-xl font-semibold">Офферы</h2>
+          <p className="text-sm text-muted-foreground">
+            Воронка учеников — от первых новостей до выхода на работу.
+          </p>
+        </div>
+        {offersQ.isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+      </header>
+
+      {/* Воронка: этапы идут справа налево */}
+      <div className="grid gap-4 lg:grid-cols-3 lg:[direction:rtl]">
+        {STAGES.map((stage, idx) => {
+          const stageOffers = offers.filter((o) => o.stage === stage.key);
+          const width = ["100%", "94%", "88%"][idx];
+          return (
+            <div key={stage.key} className="lg:[direction:ltr] mx-auto w-full" style={{ maxWidth: width }}>
+              <div className="glass rounded-2xl p-4 h-full flex flex-col">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div>
+                    <h3 className="font-semibold text-sm leading-tight">{stage.title}</h3>
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground mt-0.5">
+                      {stage.hint} · {stageOffers.length}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setAdding(adding === stage.key ? null : stage.key)}
+                    className="shrink-0 rounded-lg bg-primary/15 text-primary p-1.5 hover:bg-primary/25"
+                    aria-label="Добавить ученика"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {adding === stage.key && (
+                  <div className="mb-3 space-y-2 rounded-xl bg-surface-2/60 p-3">
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Имя ученика"
+                      className="w-full bg-input/40 rounded-lg px-3 py-2 text-sm outline-none border border-border focus:border-primary"
+                    />
+                    <input
+                      value={company}
+                      onChange={(e) => setCompany(e.target.value)}
+                      placeholder="Компания (необязательно)"
+                      className="w-full bg-input/40 rounded-lg px-3 py-2 text-sm outline-none border border-border focus:border-primary"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setAdding(null)}
+                        className="text-sm px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground"
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        disabled={!name.trim() || addMut.isPending}
+                        onClick={() => addMut.mutate(stage.key)}
+                        className="text-sm px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50"
+                      >
+                        Добавить
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3 flex-1">
+                  {stageOffers.length === 0 && (
+                    <p className="text-xs text-muted-foreground py-6 text-center">Пусто</p>
+                  )}
+                  {stageOffers.map((o) => {
+                    const tasks = (o.tasks ?? {}) as Record<string, string>;
+                    const doneCount = stage.tasks.filter((t) => tasks[t.key]).length;
+                    const stageIdx = STAGE_ORDER.indexOf(o.stage);
+                    return (
+                      <article key={o.id} className="group rounded-xl bg-surface-2/60 border border-border p-3">
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{o.student_name}</p>
+                            {o.company && (
+                              <p className="text-xs text-muted-foreground truncate">{o.company}</p>
+                            )}
+                          </div>
+                          <span className="text-[11px] font-mono text-muted-foreground shrink-0">
+                            {doneCount}/{stage.tasks.length}
+                          </span>
+                          <button
+                            onClick={() => delMut.mutate(o.id)}
+                            className="opacity-0 group-hover:opacity-100 transition text-muted-foreground hover:text-destructive"
+                            aria-label="Удалить"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+
+                        <ul className="mt-3 space-y-1.5">
+                          {stage.tasks.map((t) => {
+                            const at = tasks[t.key];
+                            return (
+                              <li key={t.key}>
+                                <button
+                                  onClick={() => toggleMut.mutate({ id: o.id, key: t.key, done: !at })}
+                                  className="w-full flex items-start gap-2 text-left group/task"
+                                >
+                                  <span
+                                    className={`mt-0.5 h-4 w-4 shrink-0 rounded-md border flex items-center justify-center transition ${
+                                      at
+                                        ? "bg-success/20 border-success text-success"
+                                        : "border-border text-transparent group-hover/task:border-primary"
+                                    }`}
+                                  >
+                                    <Check className="h-3 w-3" />
+                                  </span>
+                                  <span className="min-w-0">
+                                    <span
+                                      className={`block text-xs leading-snug ${
+                                        at ? "text-muted-foreground line-through" : "text-foreground/90"
+                                      }`}
+                                    >
+                                      {t.label}
+                                    </span>
+                                    {at && (
+                                      <span className="block text-[10px] font-mono text-success/80 mt-0.5">
+                                        {fmtDate(at)}
+                                      </span>
+                                    )}
+                                  </span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+
+                        <div className="mt-3 flex items-center justify-between">
+                          <button
+                            disabled={stageIdx <= 0}
+                            onClick={() =>
+                              moveMut.mutate({ id: o.id, stage: STAGE_ORDER[stageIdx - 1] })
+                            }
+                            className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-30 flex items-center gap-0.5"
+                          >
+                            <ChevronRight className="h-3 w-3" />
+                            назад
+                          </button>
+                          <button
+                            disabled={stageIdx >= STAGE_ORDER.length - 1}
+                            onClick={() =>
+                              moveMut.mutate({ id: o.id, stage: STAGE_ORDER[stageIdx + 1] })
+                            }
+                            className="text-[11px] text-primary hover:underline disabled:opacity-30 flex items-center gap-0.5"
+                          >
+                            дальше
+                            <ChevronLeft className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
