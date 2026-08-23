@@ -23,14 +23,21 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    setHydrated(true);
     supabase.auth.getUser().then(({ data, error }) => {
       if (data.user) { navigate({ to: "/today" }); return; }
       // Stale/invalid session in storage breaks new sign-ins — clear it locally.
       if (error) supabase.auth.signOut({ scope: "local" }).catch(() => {});
     }).catch(() => {});
   }, [navigate]);
+
+  if (!hydrated) {
+    return <div className="min-h-screen bg-background" />;
+  }
+
 
 
   async function submit(e: React.FormEvent) {
