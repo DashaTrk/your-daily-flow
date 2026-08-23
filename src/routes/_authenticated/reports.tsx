@@ -30,7 +30,7 @@ function ReportsPage() {
   const [selectedTplId, setSelectedTplId] = useState<string | "">("");
   const [source, setSource] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
-  const [tab, setTab] = useState<"reports" | "offers">("reports");
+  const [tab, setTab] = useState<"reports" | "offers" | "digest">("reports");
 
   const saveMut = useMutation({
     mutationFn: async (t: { id?: string; name: string; body: string }) => save({ data: t }),
