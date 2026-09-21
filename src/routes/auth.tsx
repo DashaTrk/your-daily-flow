@@ -16,9 +16,11 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+type Mode = "signin" | "signup" | "forgot";
+
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -32,25 +34,43 @@ function AuthPage() {
       // Stale/invalid session in storage breaks new sign-ins — clear it locally.
       if (error) supabase.auth.signOut({ scope: "local" }).catch(() => {});
     }).catch(() => {});
+
+    // OAuth may deliver the session slightly after the page renders.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") { navigate({ to: "/reset-password" }); return; }
+      if (session?.user) navigate({ to: "/today" });
+    });
+    return () => sub.subscription.unsubscribe();
   }, [navigate]);
 
   if (!hydrated) {
-    return <div className="min-h-screen bg-background" />;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-10 w-10 rounded-xl glass glow flex items-center justify-center animate-pulse">
+          <Sparkles className="h-5 w-5 text-primary" />
+        </div>
+      </div>
+    );
   }
-
-
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
-      if (mode === "signup") {
+      if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+        toast.success("Письмо со ссылкой отправлено на почту");
+        setMode("signin");
+      } else if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email, password,
           options: { emailRedirectTo: window.location.origin, data: { display_name: name } },
         });
         if (error) throw error;
-        toast.success("Аккаунт создан! Заходите.");
+        toast.success("Аккаунт создан! Проверьте почту и подтвердите вход.");
         setMode("signin");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -65,21 +85,30 @@ function AuthPage() {
   async function google() {
     setLoading(true);
     try {
-      // Drop any stale local session first: a dead refresh token makes the
-      // client spam /token and can break the fresh OAuth session.
-      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
-      const res = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+      const res = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/auth`,
+      });
       if (res.error) throw res.error;
-      if (!res.redirected) {
-        const { data } = await supabase.auth.getUser();
-        if (!data.user) throw new Error("Сессия не установилась, попробуйте ещё раз");
-        navigate({ to: "/today" });
+      if (res.redirected) return; // full-page navigation in progress
+
+      // Popup/web-message flow: wait for the session to land.
+      for (let i = 0; i < 20; i++) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user) { navigate({ to: "/today" }); return; }
+        await new Promise(r => setTimeout(r, 300));
       }
+      throw new Error("Сессия не установилась, попробуйте ещё раз");
     } catch (err: any) {
       toast.error(err?.message ?? "Не удалось войти через Google");
     } finally { setLoading(false); }
   }
 
+  const title = mode === "signin" ? "С возвращением" : mode === "signup" ? "Создать аккаунт" : "Восстановление пароля";
+  const subtitle = mode === "signin"
+    ? "Войдите, чтобы продолжить"
+    : mode === "signup"
+      ? "Пара шагов — и вперёд"
+      : "Пришлём ссылку для нового пароля на почту";
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10">
@@ -92,21 +121,23 @@ function AuthPage() {
         </Link>
 
         <div className="glass rounded-2xl p-8">
-          <h1 className="text-2xl font-bold mb-1">{mode === "signin" ? "С возвращением" : "Создать аккаунт"}</h1>
-          <p className="text-sm text-muted-foreground mb-6">
-            {mode === "signin" ? "Войдите, чтобы продолжить" : "Пара шагов — и вперёд"}
-          </p>
+          <h1 className="text-2xl font-bold mb-1">{title}</h1>
+          <p className="text-sm text-muted-foreground mb-6">{subtitle}</p>
 
-          <button onClick={google} disabled={loading}
-            className="w-full rounded-lg border border-border bg-surface-2 hover:bg-surface py-2.5 px-4 text-sm font-medium flex items-center justify-center gap-2 transition mb-4">
-            <GoogleIcon /> Продолжить с Google
-          </button>
+          {mode !== "forgot" && (
+            <>
+              <button onClick={google} disabled={loading}
+                className="w-full rounded-lg border border-border bg-surface-2 hover:bg-surface py-2.5 px-4 text-sm font-medium flex items-center justify-center gap-2 transition mb-4 disabled:opacity-60">
+                <GoogleIcon /> Продолжить с Google
+              </button>
 
-          <div className="flex items-center gap-3 my-4">
-            <div className="h-px bg-border flex-1" />
-            <span className="text-xs text-muted-foreground">или email</span>
-            <div className="h-px bg-border flex-1" />
-          </div>
+              <div className="flex items-center gap-3 my-4">
+                <div className="h-px bg-border flex-1" />
+                <span className="text-xs text-muted-foreground">или email</span>
+                <div className="h-px bg-border flex-1" />
+              </div>
+            </>
+          )}
 
           <form onSubmit={submit} className="space-y-3">
             {mode === "signup" && (
@@ -115,17 +146,26 @@ function AuthPage() {
             )}
             <input type="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)}
               className="w-full rounded-lg bg-input/40 border border-border px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
-            <input type="password" required minLength={6} placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)}
-              className="w-full rounded-lg bg-input/40 border border-border px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
+            {mode !== "forgot" && (
+              <input type="password" required minLength={6} placeholder="Пароль" value={password} onChange={e => setPassword(e.target.value)}
+                className="w-full rounded-lg bg-input/40 border border-border px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30" />
+            )}
             <button disabled={loading} type="submit"
               className="w-full rounded-lg bg-primary text-primary-foreground font-medium py-2.5 hover:bg-primary/90 disabled:opacity-60 transition glow">
-              {loading ? "..." : mode === "signin" ? "Войти" : "Создать аккаунт"}
+              {loading ? "..." : mode === "signin" ? "Войти" : mode === "signup" ? "Создать аккаунт" : "Отправить ссылку"}
             </button>
           </form>
 
-          <button onClick={() => setMode(m => m === "signin" ? "signup" : "signin")}
-            className="w-full text-center text-sm text-muted-foreground hover:text-foreground mt-4 transition">
-            {mode === "signin" ? "Нет аккаунта? Создать" : "Уже есть аккаунт? Войти"}
+          {mode === "signin" && (
+            <button onClick={() => setMode("forgot")}
+              className="w-full text-center text-sm text-muted-foreground hover:text-foreground mt-4 transition">
+              Забыли пароль?
+            </button>
+          )}
+
+          <button onClick={() => setMode(m => (m === "signin" ? "signup" : "signin"))}
+            className="w-full text-center text-sm text-muted-foreground hover:text-foreground mt-2 transition">
+            {mode === "signin" ? "Нет аккаунта? Создать" : mode === "signup" ? "Уже есть аккаунт? Войти" : "Вернуться ко входу"}
           </button>
         </div>
       </div>

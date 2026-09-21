@@ -1,11 +1,12 @@
 import { createMiddleware } from "@tanstack/react-start";
+import { supabase } from "@/integrations/supabase/client";
 
-// Read the Supabase access token directly from localStorage. We avoid
-// supabase.auth.getSession() because it locally validates `iat`, which fails
-// with "JWT issued at future" when the managed Supabase clock and the user's
-// browser clock disagree. Server-side `requireSupabaseAuth` still validates
-// the token against Supabase JWKS.
-function readAccessToken(): string | null {
+// Read the Supabase access token directly from localStorage first. We avoid
+// supabase.auth.getSession() as the primary path because it locally validates
+// `iat`, which fails with "JWT issued at future" when the managed Supabase
+// clock and the user's browser clock disagree. Server-side `requireSupabaseAuth`
+// still validates the token against Supabase JWKS.
+function readAccessTokenFromStorage(): string | null {
   if (typeof window === "undefined") return null;
   try {
     for (let i = 0; i < window.localStorage.length; i++) {
@@ -30,9 +31,22 @@ function readAccessToken(): string | null {
   return null;
 }
 
+// In the Lovable preview the session lives in the brokered (postMessage)
+// storage, not in localStorage, so fall back to the SDK session there.
+async function readAccessToken(): Promise<string | null> {
+  const local = readAccessTokenFromStorage();
+  if (local) return local;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export const attachSupabaseBearer = createMiddleware({ type: "function" }).client(
   async ({ next }) => {
-    const token = readAccessToken();
+    const token = await readAccessToken();
     return next({ headers: token ? { Authorization: `Bearer ${token}` } : {} });
   },
 );

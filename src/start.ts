@@ -4,7 +4,6 @@ import { renderErrorPage } from "./lib/error-page";
 // Replaces generated attachSupabaseAuth: reads token from storage without
 // local iat validation, which trips on managed-clock skew ("JWT issued at future").
 import { attachSupabaseBearer } from "@/lib/supabase-bearer";
-import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -29,6 +28,6 @@ const csrfMiddleware = createCsrfMiddleware({
 });
 
 export const startInstance = createStart(() => ({
-  functionMiddleware: [attachSupabaseAuth, attachSupabaseBearer],
+  functionMiddleware: [attachSupabaseBearer],
   requestMiddleware: [errorMiddleware, csrfMiddleware],
 }));
